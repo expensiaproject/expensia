@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -28,6 +27,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CATEGORIES, PAYMENT_METHODS, CURRENCIES, getCategoryLabel } from '../components/shared/CategoryHelpers';
 import { logAuditEvent } from '../components/shared/AuditLogger';
+import { FormSection, PrimaryButton, SecondaryButton } from '../components/shared/UIHelpers';
 
 export default function NewExpense() {
   const navigate = useNavigate();
@@ -374,25 +374,19 @@ Provide natural English translations:`,
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-md">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Expense</h1>
-          <p className="text-gray-500">Add a new expense to your records</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">New Expense</h1>
+          <p className="text-sm text-gray-500">Add a new expense to your records</p>
         </div>
       </div>
 
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
         {/* Receipt Upload */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-indigo-600" />
-              Receipt
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <FormSection icon={Receipt} title="Receipt Upload">
+          <div>
             <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-indigo-300 transition-colors">
               {form.receiptUrl ? (
                 <div className="space-y-3">
@@ -478,15 +472,12 @@ Provide natural English translations:`,
                 </label>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </FormSection>
 
         {/* Basic Info */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Expense Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <FormSection title="Merchant Information">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="date">Date *</Label>
@@ -547,30 +538,69 @@ Provide natural English translations:`,
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="description">Description</Label>
+          </div>
+        </FormSection>
+
+        {/* Category & Payment */}
+        <FormSection title="Category & Payment">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="category" className="text-left block text-sm font-medium text-gray-700">Category *</Label>
+                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className={`w-full ${errors.category ? 'border-red-500' : ''}`}>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        <div>
+                          <div className="font-medium">{cat.label}</div>
+                          <div className="text-xs text-gray-500">{cat.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && <p className="text-xs text-red-500">{errors.category}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="paymentMethod" className="text-left block text-sm font-medium text-gray-700">Payment Method</Label>
+                <Select value={form.paymentMethod} onValueChange={(v) => setForm(f => ({ ...f, paymentMethod: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(pm => (
+                      <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="description" className="text-left block text-sm font-medium text-gray-700">Description</Label>
               <Textarea
                 id="description"
                 placeholder="Add any notes or details..."
                 value={form.description}
                 onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                 rows={2}
+                className="w-full"
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </FormSection>
 
         {/* Amount & Currency */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Amount & Currency</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <FormSection title="Amount & Currency">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="originalCurrency">Original Currency</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="originalCurrency" className="text-left block text-sm font-medium text-gray-700">Original Currency</Label>
                 <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -580,8 +610,8 @@ Provide natural English translations:`,
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="originalAmount">Original Amount *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="originalAmount" className="text-left block text-sm font-medium text-gray-700">Original Amount *</Label>
                 <Input
                   id="originalAmount"
                   type="number"
@@ -589,12 +619,12 @@ Provide natural English translations:`,
                   placeholder="0.00"
                   value={form.originalAmount}
                   onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
-                  className={errors.originalAmount ? 'border-red-500' : ''}
+                  className={`w-full ${errors.originalAmount ? 'border-red-500' : ''}`}
                 />
-                {errors.originalAmount && <p className="text-sm text-red-500 mt-1">{errors.originalAmount}</p>}
+                {errors.originalAmount && <p className="text-xs text-red-500">{errors.originalAmount}</p>}
               </div>
-              <div>
-                <Label htmlFor="taxAmount">Tax Amount</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="taxAmount" className="text-left block text-sm font-medium text-gray-700">Tax Amount</Label>
                 <Input
                   id="taxAmount"
                   type="number"
@@ -602,125 +632,128 @@ Provide natural English translations:`,
                   placeholder="0.00"
                   value={form.taxAmount}
                   onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
+                  className="w-full"
                 />
               </div>
             </div>
 
-            {/* FX Section - show if not local cash */}
-            {form.paymentMethod !== 'cash_local' && (
-              <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                <h4 className="font-medium text-gray-700">Foreign Exchange Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="baseCurrency">Base Currency</Label>
-                    <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {(form.paymentMethod === 'personal_card' || form.paymentMethod === 'corporate_card') && (
-                    <div>
-                      <Label htmlFor="amountInBase">Amount Charged (Base)</Label>
-                      <Input
-                        id="amountInBase"
-                        type="number"
-                        step="0.01"
-                        placeholder="Amount on card statement"
-                        value={form.amountInBase}
-                        onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Enter amount from your card statement</p>
-                    </div>
-                  )}
-                  
-                  {form.paymentMethod === 'cash_foreign' && (
-                    <div>
-                      <Label htmlFor="fxRate">Exchange Rate</Label>
-                      <Input
-                        id="fxRate"
-                        type="number"
-                        step="0.000001"
-                        placeholder="e.g., 1.35"
-                        value={form.fxRate}
-                        onChange={(e) => setForm(f => ({ ...f, fxRate: e.target.value }))}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{form.originalCurrency} to {form.baseCurrency}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <Label htmlFor="fxFeeAmount">FX Fee (Optional)</Label>
-                    <Input
-                      id="fxFeeAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={form.fxFeeAmount}
-                      onChange={(e) => setForm(f => ({ ...f, fxFeeAmount: e.target.value }))}
-                    />
-                  </div>
+          </div>
+        </FormSection>
+
+        {/* FX Section - show if not local cash */}
+        {form.paymentMethod !== 'cash_local' && (
+          <FormSection title="Foreign Exchange Details">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="baseCurrency" className="text-left block text-sm font-medium text-gray-700">Base Currency</Label>
+                  <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
-                {form.fxRate && (
-                  <div className="text-sm text-gray-600">
-                    Calculated: {form.originalAmount || 0} {form.originalCurrency} × {form.fxRate} = {form.amountInBase || 0} {form.baseCurrency}
+                {(form.paymentMethod === 'personal_card' || form.paymentMethod === 'corporate_card') && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="amountInBase" className="text-left block text-sm font-medium text-gray-700">Amount Charged (Base)</Label>
+                    <Input
+                      id="amountInBase"
+                      type="number"
+                      step="0.01"
+                      placeholder="Amount on card statement"
+                      value={form.amountInBase}
+                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Enter amount from your card statement</p>
                   </div>
                 )}
                 
-                <div>
-                  <Label htmlFor="fxNotes">FX Notes</Label>
+                {form.paymentMethod === 'cash_foreign' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fxRate" className="text-left block text-sm font-medium text-gray-700">Exchange Rate</Label>
+                    <Input
+                      id="fxRate"
+                      type="number"
+                      step="0.000001"
+                      placeholder="e.g., 1.35"
+                      value={form.fxRate}
+                      onChange={(e) => setForm(f => ({ ...f, fxRate: e.target.value }))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">{form.originalCurrency} to {form.baseCurrency}</p>
+                  </div>
+                )}
+                
+                <div className="space-y-1.5">
+                  <Label htmlFor="fxFeeAmount" className="text-left block text-sm font-medium text-gray-700">FX Fee (Optional)</Label>
                   <Input
-                    id="fxNotes"
-                    placeholder="e.g., Rate from money changer at airport"
-                    value={form.fxNotes}
-                    onChange={(e) => setForm(f => ({ ...f, fxNotes: e.target.value }))}
+                    id="fxFeeAmount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={form.fxFeeAmount}
+                    onChange={(e) => setForm(f => ({ ...f, fxFeeAmount: e.target.value }))}
+                    className="w-full"
                   />
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Project & Cost Center */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Allocation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="projectId">Project (Optional)</Label>
-                <Select value={form.projectId} onValueChange={(v) => setForm(f => ({ ...f, projectId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>No Project</SelectItem>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.code} - {p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="costCenter">Cost Center</Label>
+              
+              {form.fxRate && (
+                <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
+                  Calculated: {form.originalAmount || 0} {form.originalCurrency} × {form.fxRate} = {form.amountInBase || 0} {form.baseCurrency}
+                </div>
+              )}
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="fxNotes" className="text-left block text-sm font-medium text-gray-700">FX Notes</Label>
                 <Input
-                  id="costCenter"
-                  placeholder="e.g., DEPT-001"
-                  value={form.costCenter}
-                  onChange={(e) => setForm(f => ({ ...f, costCenter: e.target.value }))}
+                  id="fxNotes"
+                  placeholder="e.g., Rate from money changer at airport"
+                  value={form.fxNotes}
+                  onChange={(e) => setForm(f => ({ ...f, fxNotes: e.target.value }))}
+                  className="w-full"
                 />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </FormSection>
+        )}
+
+        {/* Project & Cost Center */}
+        <FormSection title="Allocation">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="projectId" className="text-left block text-sm font-medium text-gray-700">Project (Optional)</Label>
+              <Select value={form.projectId} onValueChange={(v) => setForm(f => ({ ...f, projectId: v }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>No Project</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.code} - {p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="costCenter" className="text-left block text-sm font-medium text-gray-700">Cost Center</Label>
+              <Input
+                id="costCenter"
+                placeholder="e.g., DEPT-001"
+                value={form.costCenter}
+                onChange={(e) => setForm(f => ({ ...f, costCenter: e.target.value }))}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </FormSection>
 
         {/* Warnings */}
         {policyWarnings.length > 0 && (
@@ -747,28 +780,28 @@ Provide natural English translations:`,
         )}
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-end">
-          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+        <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t border-gray-100">
+          <SecondaryButton type="button" onClick={() => navigate(-1)}>
             Cancel
-          </Button>
+          </SecondaryButton>
           <Button 
             type="submit" 
             variant="outline"
             disabled={createExpenseMutation.isPending}
+            className="rounded-md font-medium h-10 px-5 w-full sm:w-[180px]"
           >
             Save as Draft
           </Button>
-          <Button 
+          <PrimaryButton 
             type="button"
             onClick={(e) => handleSubmit(e, true)}
-            className="bg-indigo-600 hover:bg-indigo-700"
             disabled={createExpenseMutation.isPending}
           >
             {createExpenseMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : null}
             Save & Submit
-          </Button>
+          </PrimaryButton>
         </div>
       </form>
     </div>
