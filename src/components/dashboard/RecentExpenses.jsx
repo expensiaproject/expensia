@@ -1,19 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ArrowRight, Receipt } from 'lucide-react';
 import { createPageUrl } from '../../utils';
-import { getCategoryLabel, getCategoryColor, getStatusColor, formatCurrency } from '../shared/CategoryHelpers';
+import { getCategoryLabel, formatCurrency } from '../shared/CategoryHelpers';
+import { StatusBadge, CategoryBadge } from '../shared/UIHelpers';
 
 export default function RecentExpenses({ expenses, baseCurrency = 'USD', showViewAll = true }) {
   const recentExpenses = expenses.slice(0, 5);
 
   return (
-    <Card className="bg-white border-0 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="bg-white border-0 shadow-sm rounded-xl">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100">
         <CardTitle className="text-lg font-semibold">Recent Expenses</CardTitle>
         {showViewAll && (
           <Link to={createPageUrl('MyExpenses')}>
@@ -42,27 +42,23 @@ export default function RecentExpenses({ expenses, baseCurrency = 'USD', showVie
                 className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900 truncate">{expense.merchant}</p>
-                    <Badge variant="secondary" className={`text-xs ${getStatusColor(expense.status)}`}>
-                      {expense.status}
-                    </Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm text-gray-900 truncate">{expense.merchant}</p>
+                    <StatusBadge status={expense.status} />
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className="text-xs text-gray-500">
                       {expense.date && format(new Date(expense.date), 'MMM d, yyyy')}
                     </span>
-                    <Badge variant="outline" className={`text-xs ${getCategoryColor(expense.category)}`}>
-                      {getCategoryLabel(expense.category)}
-                    </Badge>
+                    <CategoryBadge category={expense.category} label={getCategoryLabel(expense.category)} />
                   </div>
                 </div>
-                <div className="text-right ml-4">
-                  <p className="font-semibold text-gray-900">
+                <div className="text-right ml-4 flex-shrink-0">
+                  <p className="font-semibold text-sm text-gray-900 tabular-nums">
                     {formatCurrency(expense.amountInBase, baseCurrency)}
                   </p>
                   {expense.originalCurrency !== baseCurrency && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 tabular-nums">
                       {formatCurrency(expense.originalAmount, expense.originalCurrency)}
                     </p>
                   )}
