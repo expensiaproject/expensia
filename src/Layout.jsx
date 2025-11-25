@@ -10,7 +10,6 @@ import {
   Users,
   Settings,
   Shield,
-  FolderKanban,
   History,
   LogOut,
   Menu,
@@ -52,7 +51,6 @@ export default function Layout({ children, currentPageName }) {
     { name: 'All Reports', page: 'AdminReports', icon: FileText },
     { name: 'Users', page: 'AdminUsers', icon: Users },
     { name: 'Policies', page: 'AdminPolicies', icon: Shield },
-    { name: 'Projects', page: 'AdminProjects', icon: FolderKanban },
     { name: 'Audit Logs', page: 'AdminAuditLogs', icon: History },
     { name: 'Data Settings', page: 'AdminDataPolicy', icon: Database },
   ];

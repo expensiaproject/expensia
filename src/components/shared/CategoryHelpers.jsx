@@ -12,10 +12,8 @@ export const CATEGORIES = [
 ];
 
 export const PAYMENT_METHODS = [
-  { value: 'personal_card', label: 'Personal Card' },
-  { value: 'corporate_card', label: 'Corporate Card' },
-  { value: 'cash_local', label: 'Cash – Local Currency' },
-  { value: 'cash_foreign', label: 'Cash – Foreign Currency' }
+  { value: 'card', label: 'Card' },
+  { value: 'cash', label: 'Cash' }
 ];
 
 export const CURRENCIES = [
