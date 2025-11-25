@@ -53,7 +53,7 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = user?.baseCurrency || 'SGD';
   
   // Calculate stats
   const now = new Date();
