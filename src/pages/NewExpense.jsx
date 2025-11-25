@@ -117,63 +117,153 @@ export default function NewExpense() {
     const file = e.target.files[0];
     if (!file) return;
     
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    const fileExtension = file.name.toLowerCase().split('.').pop();
+    const validExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+      setErrors(e => ({ ...e, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+      return;
+    }
+    
     setReceiptFile(file);
     setIsUploading(true);
+    setOcrWarning(null);
+    setOcrConfidence(null);
     
     try {
+      // Step 1: Upload the file
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setForm(f => ({ ...f, receiptUrl: file_url }));
       
-      // Extract data using AI
+      // Step 2: Automatic OCR processing
       setIsExtracting(true);
-      const extractionResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `Analyze this receipt image and extract the following information. If text is in a non-English language, translate key fields to English.
-        
-Extract:
-- merchant/vendor name (translated if needed)
-- date (in YYYY-MM-DD format)
-- currency code (e.g., USD, EUR, JPY)
-- total amount (numeric only)
-- tax amount if visible (numeric only)
-- description/items (brief summary, translated if needed)
-- category (choose from: air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous)
+      
+      // Step 2a: Extract raw OCR text and structured data
+      const ocrResult = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
 
-Also provide:
-- original_language: the detected language of the receipt
-- original_text: key text in original language (merchant name, items)`,
+1. EXTRACT ALL TEXT from the receipt exactly as it appears (raw OCR output)
+2. DETECT the language of the receipt
+3. PARSE structured fields from the text
+4. ESTIMATE your confidence (0-100%) based on image quality and text clarity
+
+Extract these structured fields:
+- merchant: vendor/store name
+- date: transaction date (format as YYYY-MM-DD)
+- currency: currency code (USD, EUR, JPY, CNY, SGD, etc.)
+- total_amount: final total amount (number only)
+- tax_amount: tax/VAT amount if visible (number only)
+- items_description: brief summary of purchased items
+- category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
+
+Provide:
+- raw_ocr_text: all text exactly as read from receipt
+- detected_language: language code (en, ja, zh, ko, etc.)
+- confidence_score: your confidence percentage (0-100)`,
         file_urls: file_url,
         response_json_schema: {
           type: 'object',
           properties: {
+            raw_ocr_text: { type: 'string' },
+            detected_language: { type: 'string' },
+            confidence_score: { type: 'number' },
             merchant: { type: 'string' },
             date: { type: 'string' },
             currency: { type: 'string' },
-            amount: { type: 'number' },
+            total_amount: { type: 'number' },
             tax_amount: { type: 'number' },
-            description: { type: 'string' },
-            category: { type: 'string' },
-            original_language: { type: 'string' },
-            original_text: { type: 'string' }
+            items_description: { type: 'string' },
+            category: { type: 'string' }
           }
         }
       });
       
-      setExtractedData(extractionResult);
+      // Step 3: Save raw OCR to extractedFieldsOriginal
+      const extractedFieldsOriginal = {
+        raw_text: ocrResult.raw_ocr_text,
+        language: ocrResult.detected_language,
+        confidence: ocrResult.confidence_score,
+        merchant_original: ocrResult.merchant,
+        items_original: ocrResult.items_description
+      };
       
-      // Pre-fill form with extracted data
+      // Step 4: Translate if not English
+      let translatedData = {
+        merchant: ocrResult.merchant,
+        description: ocrResult.items_description,
+        language: 'English'
+      };
+      
+      const needsTranslation = ocrResult.detected_language && 
+        !['en', 'eng', 'english'].includes(ocrResult.detected_language.toLowerCase());
+      
+      if (needsTranslation && (ocrResult.merchant || ocrResult.items_description)) {
+        const translationResult = await base44.integrations.Core.InvokeLLM({
+          prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English. Preserve the meaning and context.
+
+Merchant name: ${ocrResult.merchant || 'N/A'}
+Items/Description: ${ocrResult.items_description || 'N/A'}
+Raw text excerpt: ${(ocrResult.raw_ocr_text || '').substring(0, 500)}
+
+Provide natural English translations:`,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              merchant_english: { type: 'string' },
+              description_english: { type: 'string' },
+              translation_notes: { type: 'string' }
+            }
+          }
+        });
+        
+        translatedData = {
+          merchant: translationResult.merchant_english || ocrResult.merchant,
+          description: translationResult.description_english || ocrResult.items_description,
+          notes: translationResult.translation_notes,
+          source_language: ocrResult.detected_language
+        };
+      }
+      
+      // Step 5: Save translation to extractedFieldsEnglish
+      const extractedFieldsEnglish = {
+        merchant: translatedData.merchant,
+        description: translatedData.description,
+        source_language: ocrResult.detected_language,
+        translation_notes: translatedData.notes
+      };
+      
+      // Step 6: Set confidence and warning
+      setOcrConfidence(ocrResult.confidence_score);
+      if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
+        setOcrWarning('Some receipt values may be incomplete. Please review before submitting.');
+      }
+      
+      // Step 7: Store full extraction data
+      setExtractedData({
+        ...ocrResult,
+        extractedFieldsOriginal,
+        extractedFieldsEnglish,
+        translatedMerchant: translatedData.merchant,
+        translatedDescription: translatedData.description
+      });
+      
+      // Step 8: Autofill form fields with translated values
       setForm(f => ({
         ...f,
-        merchant: extractionResult.merchant || f.merchant,
-        date: extractionResult.date || f.date,
-        originalCurrency: extractionResult.currency || f.originalCurrency,
-        originalAmount: extractionResult.amount?.toString() || f.originalAmount,
-        taxAmount: extractionResult.tax_amount?.toString() || f.taxAmount,
-        description: extractionResult.description || f.description,
-        category: extractionResult.category || f.category,
+        merchant: translatedData.merchant || ocrResult.merchant || f.merchant,
+        date: ocrResult.date || f.date,
+        originalCurrency: ocrResult.currency || f.originalCurrency,
+        originalAmount: ocrResult.total_amount?.toString() || f.originalAmount,
+        taxAmount: ocrResult.tax_amount?.toString() || f.taxAmount,
+        description: translatedData.description || ocrResult.items_description || f.description,
+        category: ocrResult.category || f.category,
       }));
       
     } catch (error) {
       console.error('Failed to process receipt:', error);
+      setOcrWarning('OCR processing failed. Please enter details manually.');
     } finally {
       setIsUploading(false);
       setIsExtracting(false);
