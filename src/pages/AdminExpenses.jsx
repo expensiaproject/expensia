@@ -45,8 +45,6 @@ import {
 import {
   CATEGORIES,
   getCategoryLabel,
-  getCategoryColor,
-  getStatusColor,
   formatCurrency,
   getPaymentMethodLabel
 } from '../components/shared/CategoryHelpers';
@@ -57,6 +55,7 @@ import {
   prepareExpenseDataForExport,
   generateExportFilename
 } from '../components/shared/ExportUtils';
+import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
 
 export default function AdminExpenses() {
   const [search, setSearch] = useState('');
@@ -129,7 +128,7 @@ export default function AdminExpenses() {
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-sm text-gray-500">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -137,31 +136,9 @@ export default function AdminExpenses() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">All Expenses</h1>
-          <p className="text-gray-500 mt-1">{filteredExpenses.length} expenses</p>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => handleExport('csv')}>
-              Export CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('excel')}>
-              Export Excel
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('pdf')}>
-              Export PDF
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <PageHeader title="All Expenses" subtitle={`${filteredExpenses.length} expenses`}>
+        <ExportButtonGroup onExport={handleExport} />
+      </PageHeader>
 
       {/* Filters */}
       <Card className="border-0 shadow-sm">
@@ -239,58 +216,59 @@ export default function AdminExpenses() {
       </Card>
 
       {/* Table */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Date</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Merchant</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+            <TableHeader className="sticky top-0 z-10">
+              <TableRow className="bg-gray-50 border-b border-gray-200">
+                <TableHead className="font-semibold text-gray-700">Date</TableHead>
+                <TableHead className="font-semibold text-gray-700">User</TableHead>
+                <TableHead className="font-semibold text-gray-700">Merchant</TableHead>
+                <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Amount</TableHead>
+                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto" />
+                  <TableCell colSpan={7}>
+                    <LoadingSpinner />
                   </TableCell>
                 </TableRow>
               ) : filteredExpenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No expenses found</p>
+                  <TableCell colSpan={7}>
+                    <EmptyState 
+                      icon={Receipt}
+                      title="No expenses found"
+                      description="Adjust your filters to see more results"
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium">
+                filteredExpenses.map((expense, index) => (
+                  <TableRow key={expense.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <TableCell className="font-medium text-sm">
                       {expense.date && format(new Date(expense.date), 'MMM d, yyyy')}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{getUserName(expense.employeeId)}</span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-sm">
                         {expense.merchant}
                         {expense.policyFlags?.length > 0 && (
-                          <AlertTriangle className="h-3 w-3 text-amber-500" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={getCategoryColor(expense.category)}>
-                        {getCategoryLabel(expense.category)}
-                      </Badge>
+                      <CategoryBadge category={expense.category} label={getCategoryLabel(expense.category)} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="font-medium">
+                    <TableCell className="text-right tabular-nums">
+                      <div className="font-medium text-sm">
                         {formatCurrency(expense.amountInBase, baseCurrency)}
                       </div>
                       {expense.originalCurrency !== baseCurrency && (
@@ -300,9 +278,7 @@ export default function AdminExpenses() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={getStatusColor(expense.status)}>
-                        {expense.status}
-                      </Badge>
+                      <StatusBadge status={expense.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <Button 
@@ -343,10 +319,8 @@ export default function AdminExpenses() {
                   <p className="font-medium">{viewDialog.expense.merchant}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Category</p>
-                  <Badge className={getCategoryColor(viewDialog.expense.category)}>
-                    {getCategoryLabel(viewDialog.expense.category)}
-                  </Badge>
+                  <p className="text-xs text-gray-500 mb-1">Category</p>
+                  <CategoryBadge category={viewDialog.expense.category} label={getCategoryLabel(viewDialog.expense.category)} />
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Original Amount</p>
@@ -365,10 +339,8 @@ export default function AdminExpenses() {
                   <p className="font-medium">{getPaymentMethodLabel(viewDialog.expense.paymentMethod)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <Badge className={getStatusColor(viewDialog.expense.status)}>
-                    {viewDialog.expense.status}
-                  </Badge>
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <StatusBadge status={viewDialog.expense.status} />
                 </div>
               </div>
               {viewDialog.expense.description && (
