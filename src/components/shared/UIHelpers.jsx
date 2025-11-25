@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 
 // Status Badge Component with consistent styling
 export function StatusBadge({ status }) {
@@ -49,39 +49,57 @@ export function CategoryBadge({ category, label }) {
   );
 }
 
-// Export Button Group Component
+// Export Button Group Component for Users
 export function ExportButtonGroup({ onExport, disabled = false }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="outline"
         size="sm"
-        onClick={() => onExport('csv')}
-        disabled={disabled}
-        className="h-9 px-4 rounded-md font-medium min-w-[120px]"
-      >
-        <Download className="h-4 w-4 mr-2" />
-        CSV
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
         onClick={() => onExport('excel')}
         disabled={disabled}
-        className="h-9 px-4 rounded-md font-medium min-w-[120px]"
+        className="h-9 px-4 rounded-md font-medium min-w-[140px]"
       >
         <FileSpreadsheet className="h-4 w-4 mr-2" />
-        Excel
+        Download Excel
       </Button>
       <Button
         variant="outline"
         size="sm"
         onClick={() => onExport('pdf')}
         disabled={disabled}
-        className="h-9 px-4 rounded-md font-medium min-w-[120px]"
+        className="h-9 px-4 rounded-md font-medium min-w-[140px]"
       >
         <FileText className="h-4 w-4 mr-2" />
-        PDF
+        Download PDF
+      </Button>
+    </div>
+  );
+}
+
+// Export Button Group Component for Admins
+export function AdminExportButtonGroup({ onExport, disabled = false }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onExport('excel')}
+        disabled={disabled}
+        className="h-9 px-4 rounded-md font-medium min-w-[130px]"
+      >
+        <FileSpreadsheet className="h-4 w-4 mr-2" />
+        Export Excel
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onExport('pdf')}
+        disabled={disabled}
+        className="h-9 px-4 rounded-md font-medium min-w-[130px]"
+      >
+        <FileText className="h-4 w-4 mr-2" />
+        Export PDF
       </Button>
     </div>
   );
@@ -183,6 +201,7 @@ export default {
   StatusBadge,
   CategoryBadge,
   ExportButtonGroup,
+  AdminExportButtonGroup,
   FormSection,
   PageHeader,
   PrimaryButton,
