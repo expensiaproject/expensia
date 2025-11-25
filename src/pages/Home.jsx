@@ -7,8 +7,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { 
   Receipt, 
   FileText, 
-  Plus, 
-  Download,
+  Plus,
   DollarSign,
   Clock,
   CheckCircle2,
