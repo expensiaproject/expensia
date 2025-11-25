@@ -446,6 +446,8 @@ Provide natural English translations:`,
                       setForm(f => ({ ...f, receiptUrl: '' }));
                       setExtractedData(null);
                       setReceiptFile(null);
+                      setOcrConfidence(null);
+                      setOcrWarning(null);
                     }}
                   >
                     Remove & Upload New
