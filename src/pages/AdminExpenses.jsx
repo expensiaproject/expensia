@@ -81,7 +81,7 @@ export default function AdminExpenses() {
     queryFn: () => base44.entities.User.list(),
   });
 
-  const baseCurrency = 'USD';
+  const baseCurrency = 'SGD';
 
   const getUserName = (employeeId) => {
     const u = allUsers.find(u => u.id === employeeId);
