@@ -77,6 +77,10 @@ export default function EditExpense() {
   });
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [ocrConfidence, setOcrConfidence] = useState(null);
+  const [ocrWarning, setOcrWarning] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
   const [errors, setErrors] = useState({});
 
   // Load expense data into form
