@@ -13,6 +13,7 @@ import {
   Receipt,
   Sparkles
 } from 'lucide-react';
+// Sparkles is already imported for OCR feedback
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
