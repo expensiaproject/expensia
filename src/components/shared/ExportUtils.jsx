@@ -1,0 +1,197 @@
+import { getCategoryLabel, getPaymentMethodLabel, getStatusColor } from './CategoryHelpers';
+import { format } from 'date-fns';
+
+export const formatDateForExport = (date) => {
+  if (!date) return '';
+  return format(new Date(date), 'yyyy-MM-dd');
+};
+
+export const generateExportFilename = (type, isAdmin = false) => {
+  const dateStr = format(new Date(), 'yyyyMMdd');
+  const userType = isAdmin ? 'Admin' : 'User';
+  
+  switch (type) {
+    case 'csv':
+      return `Expensia_Export_${userType}_${dateStr}.csv`;
+    case 'excel':
+      return `Expensia_Export_${userType}_${dateStr}.xlsx`;
+    case 'pdf':
+      return `Expensia_Report_${userType}_${dateStr}.pdf`;
+    default:
+      return `Expensia_Export_${userType}_${dateStr}`;
+  }
+};
+
+export const prepareExpenseDataForExport = (expenses) => {
+  return expenses.map(exp => ({
+    'Date': formatDateForExport(exp.date),
+    'Merchant': exp.merchant || '',
+    'Category': getCategoryLabel(exp.category),
+    'Description': exp.description || '',
+    'Original Currency': exp.originalCurrency || '',
+    'Original Amount': exp.originalAmount || 0,
+    'Base Currency': exp.baseCurrency || '',
+    'Amount in Base': exp.amountInBase || 0,
+    'FX Rate': exp.fxRate || '',
+    'FX Fee': exp.fxFeeAmount || '',
+    'FX Source': exp.fxSource || '',
+    'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
+    'Tax Amount': exp.taxAmount || 0,
+    'Project': exp.projectId || '',
+    'Cost Center': exp.costCenter || '',
+    'Status': exp.status || 'draft',
+    'Report ID': exp.reportId || '',
+    'Policy Flags': (exp.policyFlags || []).join('; ')
+  }));
+};
+
+export const prepareReportDataForExport = (reports) => {
+  return reports.map(rep => ({
+    'Title': rep.title || '',
+    'Period Start': formatDateForExport(rep.periodStart),
+    'Period End': formatDateForExport(rep.periodEnd),
+    'Total Amount': rep.totalAmountBase || 0,
+    'Status': rep.status || 'open',
+    'Notes': rep.notes || '',
+    'Created': formatDateForExport(rep.created_date)
+  }));
+};
+
+export const exportToCSV = (data, filename) => {
+  if (!data || data.length === 0) {
+    alert('No data to export');
+    return;
+  }
+  
+  const headers = Object.keys(data[0]);
+  const csvRows = [];
+  
+  // Add headers
+  csvRows.push(headers.join(','));
+  
+  // Add data rows
+  for (const row of data) {
+    const values = headers.map(header => {
+      const val = row[header];
+      // Escape quotes and wrap in quotes if contains comma
+      const escaped = String(val).replace(/"/g, '""');
+      return `"${escaped}"`;
+    });
+    csvRows.push(values.join(','));
+  }
+  
+  const csvString = csvRows.join('\n');
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, filename);
+};
+
+export const exportToExcel = (data, filename) => {
+  if (!data || data.length === 0) {
+    alert('No data to export');
+    return;
+  }
+  
+  // Create a simple HTML table that Excel can open
+  const headers = Object.keys(data[0]);
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
+  html += '<head><meta charset="UTF-8"></head><body>';
+  html += '<table border="1">';
+  
+  // Headers
+  html += '<tr>';
+  headers.forEach(h => {
+    html += `<th style="background-color:#4F46E5;color:white;font-weight:bold;padding:8px;">${h}</th>`;
+  });
+  html += '</tr>';
+  
+  // Data rows
+  data.forEach((row, idx) => {
+    const bgColor = idx % 2 === 0 ? '#ffffff' : '#f3f4f6';
+    html += `<tr style="background-color:${bgColor}">`;
+    headers.forEach(h => {
+      html += `<td style="padding:6px;">${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`;
+    });
+    html += '</tr>';
+  });
+  
+  html += '</table></body></html>';
+  
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  downloadBlob(blob, filename.replace('.xlsx', '.xls'));
+};
+
+export const exportToPDF = (data, title, filename) => {
+  if (!data || data.length === 0) {
+    alert('No data to export');
+    return;
+  }
+  
+  const headers = Object.keys(data[0]);
+  
+  // Create a printable HTML document
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1f2937; }
+        h1 { color: #4F46E5; margin-bottom: 8px; font-size: 28px; }
+        .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+        th { background-color: #4F46E5; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
+        td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+        tr:nth-child(even) { background-color: #f9fafb; }
+        .footer { margin-top: 30px; font-size: 11px; color: #9ca3af; text-align: center; }
+        @media print {
+          body { padding: 20px; }
+          table { font-size: 9px; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Expensia</h1>
+      <div class="subtitle">${title} • Generated on ${format(new Date(), 'MMMM d, yyyy')}</div>
+      <table>
+        <thead><tr>`;
+  
+  headers.forEach(h => {
+    html += `<th>${h}</th>`;
+  });
+  
+  html += '</tr></thead><tbody>';
+  
+  data.forEach(row => {
+    html += '<tr>';
+    headers.forEach(h => {
+      html += `<td>${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`;
+    });
+    html += '</tr>';
+  });
+  
+  html += `</tbody></table>
+      <div class="footer">This document was generated by Expensia Expense Management System</div>
+    </body></html>`;
+  
+  // Open in new window for printing/saving as PDF
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 250);
+};
+
+const downloadBlob = (blob, filename) => {
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
