@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -39,37 +39,27 @@ export default function NewExpense() {
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.filter({ active: true }),
-  });
-
   const { data: policies = [] } = useQuery({
     queryKey: ['policies'],
     queryFn: () => base44.entities.Policy.list(),
   });
+
+  const baseCurrency = user?.baseCurrency || 'SGD';
 
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     merchant: '',
     category: '',
     description: '',
-    originalCurrency: 'USD',
+    originalCurrency: '',
     originalAmount: '',
-    baseCurrency: 'USD',
+    baseCurrency: baseCurrency,
     amountInBase: '',
-    fxSource: 'no_fx',
-    fxRate: '',
-    fxFeeAmount: '',
-    fxNotes: '',
     taxAmount: '',
-    paymentMethod: 'personal_card',
-    projectId: '',
-    costCenter: user?.costCenter || '',
+    paymentMethod: 'card',
     receiptUrl: '',
   });
 
-  const [receiptFile, setReceiptFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
@@ -79,42 +69,13 @@ export default function NewExpense() {
   const [policyWarnings, setPolicyWarnings] = useState([]);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [errors, setErrors] = useState({});
-  const fileInputRef = useRef(null);
 
-  // Update cost center when user loads
+  // Update base currency when user loads
   useEffect(() => {
-    if (user?.costCenter && !form.costCenter) {
-      setForm(f => ({ ...f, costCenter: user.costCenter }));
+    if (user?.baseCurrency) {
+      setForm(f => ({ ...f, baseCurrency: user.baseCurrency }));
     }
   }, [user]);
-
-  // Calculate FX when relevant fields change
-  useEffect(() => {
-    const { paymentMethod, originalAmount, amountInBase, fxRate, originalCurrency, baseCurrency } = form;
-    
-    if (paymentMethod === 'cash_local') {
-      setForm(f => ({
-        ...f,
-        fxSource: 'no_fx',
-        fxRate: '',
-        amountInBase: originalAmount
-      }));
-    } else if (paymentMethod === 'personal_card' || paymentMethod === 'corporate_card') {
-      setForm(f => ({ ...f, fxSource: 'card' }));
-      // Auto-calculate FX rate if both amounts provided
-      if (originalAmount && amountInBase && parseFloat(originalAmount) > 0) {
-        const calculatedRate = parseFloat(amountInBase) / parseFloat(originalAmount);
-        setForm(f => ({ ...f, fxRate: calculatedRate.toFixed(6) }));
-      }
-    } else if (paymentMethod === 'cash_foreign') {
-      setForm(f => ({ ...f, fxSource: 'cash_manual' }));
-      // Auto-calculate base amount if rate provided
-      if (originalAmount && fxRate) {
-        const calculated = parseFloat(originalAmount) * parseFloat(fxRate);
-        setForm(f => ({ ...f, amountInBase: calculated.toFixed(2) }));
-      }
-    }
-  }, [form.paymentMethod, form.originalAmount, form.amountInBase, form.fxRate]);
 
   // Process receipt with OCR
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
@@ -124,19 +85,18 @@ export default function NewExpense() {
     setOcrConfidence(null);
     
     try {
-      // Extract raw OCR text and structured data
       const ocrResult = await base44.integrations.Core.InvokeLLM({
         prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
 
-1. EXTRACT ALL TEXT from the receipt exactly as it appears (raw OCR output)
+1. EXTRACT ALL TEXT from the receipt exactly as it appears
 2. DETECT the language of the receipt
 3. PARSE structured fields from the text
 4. ESTIMATE your confidence (0-100%) based on image quality and text clarity
 
 Extract these structured fields:
 - merchant: vendor/store name
-- date: transaction date (format as YYYY-MM-DD if possible, otherwise leave empty)
-- currency: currency code (USD, EUR, JPY, CNY, SGD, etc.)
+- date: transaction date (format as YYYY-MM-DD if possible)
+- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, etc.)
 - total_amount: final total amount (number only, no currency symbol)
 - tax_amount: tax/VAT amount if visible (number only)
 - items_description: brief summary of purchased items
@@ -171,13 +131,13 @@ Provide:
         raw_text: ocrResult.raw_ocr_text,
         language: ocrResult.detected_language,
         confidence: ocrResult.confidence_score,
-        merchant_original: ocrResult.merchant,
-        date_original: ocrResult.date,
-        total_amount_original: ocrResult.total_amount,
-        tax_amount_original: ocrResult.tax_amount,
-        currency_original: ocrResult.currency,
-        items_original: ocrResult.items_description,
-        category_original: ocrResult.category
+        merchant: ocrResult.merchant,
+        date: ocrResult.date,
+        total_amount: ocrResult.total_amount,
+        tax_amount: ocrResult.tax_amount,
+        currency: ocrResult.currency,
+        items: ocrResult.items_description,
+        category: ocrResult.category
       };
       
       // Translate if not English
@@ -192,7 +152,7 @@ Provide:
       if (needsTranslation && (ocrResult.merchant || ocrResult.items_description)) {
         try {
           const translationResult = await base44.integrations.Core.InvokeLLM({
-            prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English. Preserve the meaning and context.
+            prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English:
 
 Merchant name: ${ocrResult.merchant || 'N/A'}
 Items/Description: ${ocrResult.items_description || 'N/A'}
@@ -213,7 +173,6 @@ Provide natural English translations:`,
           };
         } catch (translationError) {
           console.error('Translation failed:', translationError);
-          // Continue with original values
         }
       }
       
@@ -229,10 +188,8 @@ Provide natural English translations:`,
         source_language: ocrResult.detected_language
       };
       
-      // Set confidence
       setOcrConfidence(ocrResult.confidence_score || 0);
       
-      // Store full extraction data
       setExtractedData({
         ...ocrResult,
         extractedFieldsOriginal,
@@ -241,7 +198,7 @@ Provide natural English translations:`,
         translatedDescription: translatedData.description
       });
       
-      // Autofill form fields - only fill empty fields unless forceOverwrite is true
+      // Autofill form fields
       const finalMerchant = translatedData.merchant || ocrResult.merchant || '';
       const finalDescription = translatedData.description || ocrResult.items_description || '';
       const finalDate = ocrResult.date || '';
@@ -254,23 +211,22 @@ Provide natural English translations:`,
         ...f,
         merchant: forceOverwrite ? finalMerchant : (f.merchant || finalMerchant),
         date: forceOverwrite ? (finalDate || f.date) : (f.date === format(new Date(), 'yyyy-MM-dd') && finalDate ? finalDate : f.date),
-        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency === 'USD' && finalCurrency ? finalCurrency : f.originalCurrency),
+        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency || finalCurrency),
         originalAmount: forceOverwrite ? finalAmount : (f.originalAmount || finalAmount),
         taxAmount: forceOverwrite ? finalTax : (f.taxAmount || finalTax),
         description: forceOverwrite ? finalDescription : (f.description || finalDescription),
         category: forceOverwrite ? (finalCategory || f.category) : (f.category || finalCategory),
       }));
       
-      // Set success/warning message
       if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
-        setOcrWarning("We couldn't confidently read this receipt. Please fill in the details manually.");
+        setOcrWarning("We couldn't read this receipt clearly. Please fill in the details manually.");
       } else {
-        setOcrSuccess('Receipt processed. Please review the extracted values.');
+        setOcrSuccess('Receipt processed. Please review the values before submitting.');
       }
       
     } catch (error) {
       console.error('Failed to process receipt:', error);
-      setOcrWarning('OCR processing failed. Please enter details manually.');
+      setOcrWarning("We couldn't read this receipt. Please fill in the details manually.");
     } finally {
       setIsExtracting(false);
     }
@@ -280,7 +236,6 @@ Provide natural English translations:`,
     const file = e.target.files[0];
     if (!file) return;
     
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     const fileExtension = file.name.toLowerCase().split('.').pop();
     const validExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
@@ -290,19 +245,16 @@ Provide natural English translations:`,
       return;
     }
     
-    setReceiptFile(file);
     setIsUploading(true);
     setOcrWarning(null);
     setOcrSuccess(null);
     setOcrConfidence(null);
     
     try {
-      // Upload the file
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setForm(f => ({ ...f, receiptUrl: file_url }));
       setIsUploading(false);
       
-      // Automatic OCR processing
       await processReceiptOCR(file_url, false);
       
     } catch (error) {
@@ -337,7 +289,7 @@ Provide natural English translations:`,
   };
 
   const checkDuplicates = async () => {
-    if (!user?.id || !form.merchant || !form.originalAmount) return null;
+    if (!user?.id || !form.merchant || !form.amountInBase) return null;
     
     const existingExpenses = await base44.entities.Expense.filter({
       employeeId: user.id,
@@ -346,13 +298,13 @@ Provide natural English translations:`,
     
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const formDate = new Date(form.date).getTime();
-    const formAmount = parseFloat(form.originalAmount);
+    const formAmount = parseFloat(form.amountInBase);
     
     const duplicate = existingExpenses.find(exp => {
       const expDate = new Date(exp.date).getTime();
       const dateDiff = Math.abs(formDate - expDate);
-      const amountDiff = Math.abs((exp.originalAmount || 0) - formAmount);
-      return dateDiff <= sevenDaysMs && amountDiff < formAmount * 0.1; // within 10%
+      const amountDiff = Math.abs((exp.amountInBase || 0) - formAmount);
+      return dateDiff <= sevenDaysMs && amountDiff < formAmount * 0.1;
     });
     
     return duplicate;
@@ -373,11 +325,10 @@ Provide natural English translations:`,
   const handleSubmit = async (e, submitExpense = false) => {
     e.preventDefault();
     
-    // Validate
     const newErrors = {};
     if (!form.merchant) newErrors.merchant = 'Merchant is required';
     if (!form.category) newErrors.category = 'Category is required';
-    if (!form.originalAmount) newErrors.originalAmount = 'Amount is required';
+    if (!form.amountInBase) newErrors.amountInBase = 'Final amount is required';
     if (!form.date) newErrors.date = 'Date is required';
     
     if (Object.keys(newErrors).length > 0) {
@@ -385,7 +336,6 @@ Provide natural English translations:`,
       return;
     }
     
-    // Check policies and duplicates
     const warnings = checkPolicies();
     const duplicate = await checkDuplicates();
     
@@ -395,18 +345,12 @@ Provide natural English translations:`,
       merchant: form.merchant,
       category: form.category,
       description: form.description,
-      originalCurrency: form.originalCurrency,
-      originalAmount: parseFloat(form.originalAmount) || 0,
+      originalCurrency: form.originalCurrency || null,
+      originalAmount: form.originalAmount ? parseFloat(form.originalAmount) : null,
       baseCurrency: form.baseCurrency,
-      amountInBase: parseFloat(form.amountInBase) || parseFloat(form.originalAmount) || 0,
-      fxSource: form.fxSource,
-      fxRate: form.fxRate ? parseFloat(form.fxRate) : null,
-      fxFeeAmount: form.fxFeeAmount ? parseFloat(form.fxFeeAmount) : null,
-      fxNotes: form.fxNotes,
+      amountInBase: parseFloat(form.amountInBase) || 0,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
-      projectId: form.projectId || null,
-      costCenter: form.costCenter,
       receiptUrl: form.receiptUrl,
       extractedFieldsOriginal: extractedData?.extractedFieldsOriginal || null,
       extractedFieldsEnglish: extractedData?.extractedFieldsEnglish || null,
@@ -454,7 +398,7 @@ Provide natural English translations:`,
                           <Sparkles className="h-4 w-4" />
                           AI extracted data from receipt
                         </div>
-                        {ocrConfidence && (
+                        {ocrConfidence !== null && (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
                             ocrConfidence >= 80 ? 'bg-green-100 text-green-700' :
                             ocrConfidence >= 60 ? 'bg-amber-100 text-amber-700' :
@@ -467,7 +411,7 @@ Provide natural English translations:`,
                       {extractedData.detected_language && 
                        !['en', 'eng', 'english'].includes(extractedData.detected_language.toLowerCase()) && (
                         <p className="text-xs text-indigo-600 mt-1">
-                          Detected language: {extractedData.detected_language} (translated to English)
+                          Detected: {extractedData.detected_language} (translated to English)
                         </p>
                       )}
                     </div>
@@ -510,7 +454,6 @@ Provide natural English translations:`,
                       onClick={() => {
                         setForm(f => ({ ...f, receiptUrl: '' }));
                         setExtractedData(null);
-                        setReceiptFile(null);
                         setOcrConfidence(null);
                         setOcrWarning(null);
                         setOcrSuccess(null);
@@ -551,11 +494,11 @@ Provide natural English translations:`,
           </div>
         </FormSection>
 
-        {/* Basic Info */}
-        <FormSection title="Merchant Information">
+        {/* Expense Details */}
+        <FormSection title="Expense Details">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="date">Date *</Label>
                 <Input
                   id="date"
@@ -564,9 +507,9 @@ Provide natural English translations:`,
                   onChange={(e) => setForm(f => ({ ...f, date: e.target.value }))}
                   className={errors.date ? 'border-red-500' : ''}
                 />
-                {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
+                {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="merchant">Merchant *</Label>
                 <Input
                   id="merchant"
@@ -575,12 +518,12 @@ Provide natural English translations:`,
                   onChange={(e) => setForm(f => ({ ...f, merchant: e.target.value }))}
                   className={errors.merchant ? 'border-red-500' : ''}
                 />
-                {errors.merchant && <p className="text-sm text-red-500 mt-1">{errors.merchant}</p>}
+                {errors.merchant && <p className="text-sm text-red-500">{errors.merchant}</p>}
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="category">Category *</Label>
                 <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
@@ -597,9 +540,9 @@ Provide natural English translations:`,
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.category && <p className="text-sm text-red-500 mt-1">{errors.category}</p>}
+                {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="paymentMethod">Payment Method</Label>
                 <Select value={form.paymentMethod} onValueChange={(v) => setForm(f => ({ ...f, paymentMethod: v }))}>
                   <SelectTrigger>
@@ -614,117 +557,90 @@ Provide natural English translations:`,
               </div>
             </div>
 
-          </div>
-        </FormSection>
-
-        {/* Category & Payment */}
-        <FormSection title="Category & Payment">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="category" className="text-left block text-sm font-medium text-gray-700">Category *</Label>
-                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className={`w-full ${errors.category ? 'border-red-500' : ''}`}>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        <div>
-                          <div className="font-medium">{cat.label}</div>
-                          <div className="text-xs text-gray-500">{cat.description}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.category && <p className="text-xs text-red-500">{errors.category}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="paymentMethod" className="text-left block text-sm font-medium text-gray-700">Payment Method</Label>
-                <Select value={form.paymentMethod} onValueChange={(v) => setForm(f => ({ ...f, paymentMethod: v }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map(pm => (
-                      <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="space-y-1.5">
-              <Label htmlFor="description" className="text-left block text-sm font-medium text-gray-700">Description</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 placeholder="Add any notes or details..."
                 value={form.description}
                 onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                 rows={2}
-                className="w-full"
               />
             </div>
           </div>
         </FormSection>
 
-        {/* Amount & Currency */}
-        <FormSection title="Amount & Currency">
+        {/* Amount Section */}
+        <FormSection title="Amount">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="originalCurrency" className="text-left block text-sm font-medium text-gray-700">Original Currency</Label>
-                <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="originalAmount" className="text-left block text-sm font-medium text-gray-700">Original Amount *</Label>
-                <Input
-                  id="originalAmount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.originalAmount}
-                  onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
-                  className={`w-full ${errors.originalAmount ? 'border-red-500' : ''}`}
-                />
-                {errors.originalAmount && <p className="text-xs text-red-500">{errors.originalAmount}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="taxAmount" className="text-left block text-sm font-medium text-gray-700">Tax Amount</Label>
-                <Input
-                  id="taxAmount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.taxAmount}
-                  onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
-                  className="w-full"
-                />
-              </div>
-            </div>
+            {/* Card Payment */}
+            {form.paymentMethod === 'card' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="originalCurrency">Receipt Currency</Label>
+                    <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="originalAmount">Amount on Receipt</Label>
+                    <Input
+                      id="originalAmount"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={form.originalAmount}
+                      onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="baseCurrency">Reporting Currency</Label>
+                    <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="amountInBase">Final Amount in {form.baseCurrency} *</Label>
+                    <Input
+                      id="amountInBase"
+                      type="number"
+                      step="0.01"
+                      placeholder="Amount charged to card"
+                      value={form.amountInBase}
+                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
+                      className={errors.amountInBase ? 'border-red-500' : ''}
+                    />
+                    <p className="text-xs text-gray-500">Enter the amount from your card statement</p>
+                    {errors.amountInBase && <p className="text-sm text-red-500">{errors.amountInBase}</p>}
+                  </div>
+                </div>
+              </>
+            )}
 
-          </div>
-        </FormSection>
-
-        {/* FX Section - show if not local cash */}
-        {form.paymentMethod !== 'cash_local' && (
-          <FormSection title="Foreign Exchange Details">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Cash Payment */}
+            {form.paymentMethod === 'cash' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="baseCurrency" className="text-left block text-sm font-medium text-gray-700">Base Currency</Label>
+                  <Label htmlFor="baseCurrency">Reporting Currency</Label>
                   <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -734,99 +650,34 @@ Provide natural English translations:`,
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {(form.paymentMethod === 'personal_card' || form.paymentMethod === 'corporate_card') && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="amountInBase" className="text-left block text-sm font-medium text-gray-700">Amount Charged (Base)</Label>
-                    <Input
-                      id="amountInBase"
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount on card statement"
-                      value={form.amountInBase}
-                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-gray-500">Enter amount from your card statement</p>
-                  </div>
-                )}
-                
-                {form.paymentMethod === 'cash_foreign' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fxRate" className="text-left block text-sm font-medium text-gray-700">Exchange Rate</Label>
-                    <Input
-                      id="fxRate"
-                      type="number"
-                      step="0.000001"
-                      placeholder="e.g., 1.35"
-                      value={form.fxRate}
-                      onChange={(e) => setForm(f => ({ ...f, fxRate: e.target.value }))}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-gray-500">{form.originalCurrency} to {form.baseCurrency}</p>
-                  </div>
-                )}
-                
                 <div className="space-y-1.5">
-                  <Label htmlFor="fxFeeAmount" className="text-left block text-sm font-medium text-gray-700">FX Fee (Optional)</Label>
+                  <Label htmlFor="amountInBase">Amount in {form.baseCurrency} *</Label>
                   <Input
-                    id="fxFeeAmount"
+                    id="amountInBase"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={form.fxFeeAmount}
-                    onChange={(e) => setForm(f => ({ ...f, fxFeeAmount: e.target.value }))}
-                    className="w-full"
+                    value={form.amountInBase}
+                    onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
+                    className={errors.amountInBase ? 'border-red-500' : ''}
                   />
+                  {errors.amountInBase && <p className="text-sm text-red-500">{errors.amountInBase}</p>}
                 </div>
               </div>
-              
-              {form.fxRate && (
-                <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
-                  Calculated: {form.originalAmount || 0} {form.originalCurrency} × {form.fxRate} = {form.amountInBase || 0} {form.baseCurrency}
-                </div>
-              )}
-              
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="fxNotes" className="text-left block text-sm font-medium text-gray-700">FX Notes</Label>
+                <Label htmlFor="taxAmount">Tax Amount (Optional)</Label>
                 <Input
-                  id="fxNotes"
-                  placeholder="e.g., Rate from money changer at airport"
-                  value={form.fxNotes}
-                  onChange={(e) => setForm(f => ({ ...f, fxNotes: e.target.value }))}
-                  className="w-full"
+                  id="taxAmount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.taxAmount}
+                  onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
                 />
               </div>
-            </div>
-          </FormSection>
-        )}
-
-        {/* Project & Cost Center */}
-        <FormSection title="Allocation">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="projectId" className="text-left block text-sm font-medium text-gray-700">Project (Optional)</Label>
-              <Select value={form.projectId} onValueChange={(v) => setForm(f => ({ ...f, projectId: v }))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>No Project</SelectItem>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.code} - {p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="costCenter" className="text-left block text-sm font-medium text-gray-700">Cost Center</Label>
-              <Input
-                id="costCenter"
-                placeholder="e.g., DEPT-001"
-                value={form.costCenter}
-                onChange={(e) => setForm(f => ({ ...f, costCenter: e.target.value }))}
-                className="w-full"
-              />
             </div>
           </div>
         </FormSection>

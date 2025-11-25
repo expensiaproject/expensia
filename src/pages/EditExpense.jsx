@@ -47,11 +47,6 @@ export default function EditExpense() {
     enabled: !!expenseId,
   });
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.filter({ active: true }),
-  });
-
   const { data: policies = [] } = useQuery({
     queryKey: ['policies'],
     queryFn: () => base44.entities.Policy.list(),
@@ -62,18 +57,12 @@ export default function EditExpense() {
     merchant: '',
     category: '',
     description: '',
-    originalCurrency: 'USD',
+    originalCurrency: '',
     originalAmount: '',
-    baseCurrency: 'USD',
+    baseCurrency: 'SGD',
     amountInBase: '',
-    fxSource: 'no_fx',
-    fxRate: '',
-    fxFeeAmount: '',
-    fxNotes: '',
     taxAmount: '',
-    paymentMethod: 'personal_card',
-    projectId: '',
-    costCenter: '',
+    paymentMethod: 'card',
     receiptUrl: '',
   });
 
@@ -93,48 +82,16 @@ export default function EditExpense() {
         merchant: expense.merchant || '',
         category: expense.category || '',
         description: expense.description || '',
-        originalCurrency: expense.originalCurrency || 'USD',
+        originalCurrency: expense.originalCurrency || '',
         originalAmount: expense.originalAmount?.toString() || '',
-        baseCurrency: expense.baseCurrency || 'USD',
+        baseCurrency: expense.baseCurrency || 'SGD',
         amountInBase: expense.amountInBase?.toString() || '',
-        fxSource: expense.fxSource || 'no_fx',
-        fxRate: expense.fxRate?.toString() || '',
-        fxFeeAmount: expense.fxFeeAmount?.toString() || '',
-        fxNotes: expense.fxNotes || '',
         taxAmount: expense.taxAmount?.toString() || '',
-        paymentMethod: expense.paymentMethod || 'personal_card',
-        projectId: expense.projectId || '',
-        costCenter: expense.costCenter || '',
+        paymentMethod: expense.paymentMethod || 'card',
         receiptUrl: expense.receiptUrl || '',
       });
     }
   }, [expense]);
-
-  // Calculate FX when relevant fields change
-  useEffect(() => {
-    const { paymentMethod, originalAmount, amountInBase, fxRate } = form;
-    
-    if (paymentMethod === 'cash_local') {
-      setForm(f => ({
-        ...f,
-        fxSource: 'no_fx',
-        fxRate: '',
-        amountInBase: originalAmount
-      }));
-    } else if (paymentMethod === 'personal_card' || paymentMethod === 'corporate_card') {
-      setForm(f => ({ ...f, fxSource: 'card' }));
-      if (originalAmount && amountInBase && parseFloat(originalAmount) > 0) {
-        const calculatedRate = parseFloat(amountInBase) / parseFloat(originalAmount);
-        setForm(f => ({ ...f, fxRate: calculatedRate.toFixed(6) }));
-      }
-    } else if (paymentMethod === 'cash_foreign') {
-      setForm(f => ({ ...f, fxSource: 'cash_manual' }));
-      if (originalAmount && fxRate) {
-        const calculated = parseFloat(originalAmount) * parseFloat(fxRate);
-        setForm(f => ({ ...f, amountInBase: calculated.toFixed(2) }));
-      }
-    }
-  }, [form.paymentMethod, form.originalAmount, form.amountInBase, form.fxRate]);
 
   // Process receipt with OCR
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
@@ -147,15 +104,15 @@ export default function EditExpense() {
       const ocrResult = await base44.integrations.Core.InvokeLLM({
         prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
 
-1. EXTRACT ALL TEXT from the receipt exactly as it appears (raw OCR output)
+1. EXTRACT ALL TEXT from the receipt exactly as it appears
 2. DETECT the language of the receipt
 3. PARSE structured fields from the text
 4. ESTIMATE your confidence (0-100%) based on image quality and text clarity
 
 Extract these structured fields:
 - merchant: vendor/store name
-- date: transaction date (format as YYYY-MM-DD if possible, otherwise leave empty)
-- currency: currency code (USD, EUR, JPY, CNY, SGD, etc.)
+- date: transaction date (format as YYYY-MM-DD if possible)
+- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, etc.)
 - total_amount: final total amount (number only, no currency symbol)
 - tax_amount: tax/VAT amount if visible (number only)
 - items_description: brief summary of purchased items
@@ -185,21 +142,19 @@ Provide:
       
       console.log('OCR Result:', ocrResult);
       
-      // Save raw OCR to extractedFieldsOriginal
       const extractedFieldsOriginal = {
         raw_text: ocrResult.raw_ocr_text,
         language: ocrResult.detected_language,
         confidence: ocrResult.confidence_score,
-        merchant_original: ocrResult.merchant,
-        date_original: ocrResult.date,
-        total_amount_original: ocrResult.total_amount,
-        tax_amount_original: ocrResult.tax_amount,
-        currency_original: ocrResult.currency,
-        items_original: ocrResult.items_description,
-        category_original: ocrResult.category
+        merchant: ocrResult.merchant,
+        date: ocrResult.date,
+        total_amount: ocrResult.total_amount,
+        tax_amount: ocrResult.tax_amount,
+        currency: ocrResult.currency,
+        items: ocrResult.items_description,
+        category: ocrResult.category
       };
       
-      // Translate if not English
       let translatedData = {
         merchant: ocrResult.merchant || '',
         description: ocrResult.items_description || ''
@@ -235,7 +190,6 @@ Provide natural English translations:`,
         }
       }
       
-      // Save translation to extractedFieldsEnglish
       const extractedFieldsEnglish = {
         merchant: translatedData.merchant,
         description: translatedData.description,
@@ -247,10 +201,8 @@ Provide natural English translations:`,
         source_language: ocrResult.detected_language
       };
       
-      // Set confidence
       setOcrConfidence(ocrResult.confidence_score || 0);
       
-      // Store full extraction data
       setExtractedData({
         ...ocrResult,
         extractedFieldsOriginal,
@@ -259,7 +211,6 @@ Provide natural English translations:`,
         translatedDescription: translatedData.description
       });
       
-      // Autofill form fields
       const finalMerchant = translatedData.merchant || ocrResult.merchant || '';
       const finalDescription = translatedData.description || ocrResult.items_description || '';
       const finalDate = ocrResult.date || '';
@@ -272,23 +223,22 @@ Provide natural English translations:`,
         ...f,
         merchant: forceOverwrite ? finalMerchant : (f.merchant || finalMerchant),
         date: forceOverwrite ? (finalDate || f.date) : (f.date || finalDate),
-        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency === 'USD' && finalCurrency ? finalCurrency : f.originalCurrency),
+        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency || finalCurrency),
         originalAmount: forceOverwrite ? finalAmount : (f.originalAmount || finalAmount),
         taxAmount: forceOverwrite ? finalTax : (f.taxAmount || finalTax),
         description: forceOverwrite ? finalDescription : (f.description || finalDescription),
         category: forceOverwrite ? (finalCategory || f.category) : (f.category || finalCategory),
       }));
       
-      // Set success/warning message
       if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
-        setOcrWarning("We couldn't confidently read this receipt. Please fill in the details manually.");
+        setOcrWarning("We couldn't read this receipt clearly. Please fill in the details manually.");
       } else {
-        setOcrSuccess('Receipt processed. Please review the extracted values.');
+        setOcrSuccess('Receipt processed. Please review the values before submitting.');
       }
       
     } catch (error) {
       console.error('Failed to process receipt:', error);
-      setOcrWarning('OCR processing failed. Please enter details manually.');
+      setOcrWarning("We couldn't read this receipt. Please fill in the details manually.");
     } finally {
       setIsExtracting(false);
     }
@@ -298,7 +248,6 @@ Provide natural English translations:`,
     const file = e.target.files[0];
     if (!file) return;
     
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     const fileExtension = file.name.toLowerCase().split('.').pop();
     const validExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
@@ -314,12 +263,10 @@ Provide natural English translations:`,
     setOcrConfidence(null);
     
     try {
-      // Upload the file
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setForm(f => ({ ...f, receiptUrl: file_url }));
       setIsUploading(false);
       
-      // Automatic OCR processing
       await processReceiptOCR(file_url, false);
       
     } catch (error) {
@@ -369,11 +316,10 @@ Provide natural English translations:`,
   const handleSubmit = async (e, submitExpense = false) => {
     e.preventDefault();
     
-    // Validate
     const newErrors = {};
     if (!form.merchant) newErrors.merchant = 'Merchant is required';
     if (!form.category) newErrors.category = 'Category is required';
-    if (!form.originalAmount) newErrors.originalAmount = 'Amount is required';
+    if (!form.amountInBase) newErrors.amountInBase = 'Final amount is required';
     if (!form.date) newErrors.date = 'Date is required';
     
     if (Object.keys(newErrors).length > 0) {
@@ -388,18 +334,12 @@ Provide natural English translations:`,
       merchant: form.merchant,
       category: form.category,
       description: form.description,
-      originalCurrency: form.originalCurrency,
-      originalAmount: parseFloat(form.originalAmount) || 0,
+      originalCurrency: form.originalCurrency || null,
+      originalAmount: form.originalAmount ? parseFloat(form.originalAmount) : null,
       baseCurrency: form.baseCurrency,
-      amountInBase: parseFloat(form.amountInBase) || parseFloat(form.originalAmount) || 0,
-      fxSource: form.fxSource,
-      fxRate: form.fxRate ? parseFloat(form.fxRate) : null,
-      fxFeeAmount: form.fxFeeAmount ? parseFloat(form.fxFeeAmount) : null,
-      fxNotes: form.fxNotes,
+      amountInBase: parseFloat(form.amountInBase) || 0,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
-      projectId: form.projectId || null,
-      costCenter: form.costCenter,
       receiptUrl: form.receiptUrl,
       extractedFieldsOriginal: extractedData?.extractedFieldsOriginal || expense?.extractedFieldsOriginal || null,
       extractedFieldsEnglish: extractedData?.extractedFieldsEnglish || expense?.extractedFieldsEnglish || null,
@@ -477,7 +417,7 @@ Provide natural English translations:`,
                           <Sparkles className="h-4 w-4" />
                           AI extracted data from receipt
                         </div>
-                        {ocrConfidence && (
+                        {ocrConfidence !== null && (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
                             ocrConfidence >= 80 ? 'bg-green-100 text-green-700' :
                             ocrConfidence >= 60 ? 'bg-amber-100 text-amber-700' :
@@ -641,52 +581,40 @@ Provide natural English translations:`,
         {/* Amount & Currency */}
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Amount & Currency</CardTitle>
+            <CardTitle className="text-lg">Amount</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="originalCurrency">Original Currency</Label>
-                <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="originalAmount">Original Amount *</Label>
-                <Input
-                  id="originalAmount"
-                  type="number"
-                  step="0.01"
-                  value={form.originalAmount}
-                  onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
-                  className={errors.originalAmount ? 'border-red-500' : ''}
-                />
-              </div>
-              <div>
-                <Label htmlFor="taxAmount">Tax Amount</Label>
-                <Input
-                  id="taxAmount"
-                  type="number"
-                  step="0.01"
-                  value={form.taxAmount}
-                  onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            {form.paymentMethod !== 'cash_local' && (
-              <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                <h4 className="font-medium text-gray-700">Foreign Exchange Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card Payment */}
+            {form.paymentMethod === 'card' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="baseCurrency">Base Currency</Label>
+                    <Label htmlFor="originalCurrency">Receipt Currency</Label>
+                    <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="originalAmount">Amount on Receipt</Label>
+                    <Input
+                      id="originalAmount"
+                      type="number"
+                      step="0.01"
+                      value={form.originalAmount}
+                      onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="baseCurrency">Reporting Currency</Label>
                     <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
                       <SelectTrigger>
                         <SelectValue />
@@ -698,85 +626,62 @@ Provide natural English translations:`,
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  {(form.paymentMethod === 'personal_card' || form.paymentMethod === 'corporate_card') && (
-                    <div>
-                      <Label htmlFor="amountInBase">Amount Charged (Base)</Label>
-                      <Input
-                        id="amountInBase"
-                        type="number"
-                        step="0.01"
-                        value={form.amountInBase}
-                        onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                  
-                  {form.paymentMethod === 'cash_foreign' && (
-                    <div>
-                      <Label htmlFor="fxRate">Exchange Rate</Label>
-                      <Input
-                        id="fxRate"
-                        type="number"
-                        step="0.000001"
-                        value={form.fxRate}
-                        onChange={(e) => setForm(f => ({ ...f, fxRate: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                  
                   <div>
-                    <Label htmlFor="fxFeeAmount">FX Fee (Optional)</Label>
+                    <Label htmlFor="amountInBase">Final Amount in {form.baseCurrency} *</Label>
                     <Input
-                      id="fxFeeAmount"
+                      id="amountInBase"
                       type="number"
                       step="0.01"
-                      value={form.fxFeeAmount}
-                      onChange={(e) => setForm(f => ({ ...f, fxFeeAmount: e.target.value }))}
+                      placeholder="Amount charged to card"
+                      value={form.amountInBase}
+                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
+                      className={errors.amountInBase ? 'border-red-500' : ''}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Enter the amount from your card statement</p>
                   </div>
                 </div>
-                
+              </>
+            )}
+
+            {/* Cash Payment */}
+            {form.paymentMethod === 'cash' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="fxNotes">FX Notes</Label>
+                  <Label htmlFor="baseCurrency">Reporting Currency</Label>
+                  <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="amountInBase">Amount in {form.baseCurrency} *</Label>
                   <Input
-                    id="fxNotes"
-                    value={form.fxNotes}
-                    onChange={(e) => setForm(f => ({ ...f, fxNotes: e.target.value }))}
+                    id="amountInBase"
+                    type="number"
+                    step="0.01"
+                    value={form.amountInBase}
+                    onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
+                    className={errors.amountInBase ? 'border-red-500' : ''}
                   />
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Project & Cost Center */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Allocation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="projectId">Project (Optional)</Label>
-                <Select value={form.projectId} onValueChange={(v) => setForm(f => ({ ...f, projectId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>No Project</SelectItem>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.code} - {p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="costCenter">Cost Center</Label>
+                <Label htmlFor="taxAmount">Tax Amount (Optional)</Label>
                 <Input
-                  id="costCenter"
-                  value={form.costCenter}
-                  onChange={(e) => setForm(f => ({ ...f, costCenter: e.target.value }))}
+                  id="taxAmount"
+                  type="number"
+                  step="0.01"
+                  value={form.taxAmount}
+                  onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
                 />
               </div>
             </div>
