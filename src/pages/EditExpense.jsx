@@ -397,11 +397,43 @@ Provide natural English translations:`,
                     alt="Receipt" 
                     className="max-h-48 mx-auto rounded-lg shadow-md"
                   />
+                  {extractedData && (
+                    <div className="mt-3 p-3 bg-indigo-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-indigo-700 text-sm font-medium">
+                          <Sparkles className="h-4 w-4" />
+                          AI extracted data from receipt
+                        </div>
+                        {ocrConfidence && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            ocrConfidence >= 80 ? 'bg-green-100 text-green-700' :
+                            ocrConfidence >= 60 ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {Math.round(ocrConfidence)}% confidence
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {ocrWarning && (
+                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-amber-700 text-sm">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        {ocrWarning}
+                      </div>
+                    </div>
+                  )}
                   <Button 
                     type="button"
                     variant="outline" 
                     size="sm"
-                    onClick={() => setForm(f => ({ ...f, receiptUrl: '' }))}
+                    onClick={() => {
+                      setForm(f => ({ ...f, receiptUrl: '' }));
+                      setExtractedData(null);
+                      setOcrConfidence(null);
+                      setOcrWarning(null);
+                    }}
                   >
                     Remove & Upload New
                   </Button>
