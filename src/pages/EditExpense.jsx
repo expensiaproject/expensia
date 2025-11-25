@@ -414,15 +414,18 @@ Provide natural English translations:`,
                     onChange={handleReceiptUpload}
                     className="hidden"
                   />
-                  {isUploading ? (
+                  {isUploading || isExtracting ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
-                      <span className="text-gray-600">Uploading...</span>
+                      <span className="text-gray-600">
+                        {isExtracting ? 'Processing with OCR...' : 'Uploading...'}
+                      </span>
                     </div>
                   ) : (
                     <>
                       <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                       <p className="text-gray-600 font-medium">Click to upload receipt</p>
+                      <p className="text-sm text-gray-400 mt-1">AI will automatically extract details</p>
                     </>
                   )}
                 </label>
