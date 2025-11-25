@@ -20,6 +20,7 @@ import StatsCard from '../components/dashboard/StatsCard';
 import CategoryChart from '../components/dashboard/CategoryChart';
 import RecentExpenses from '../components/dashboard/RecentExpenses';
 import { formatCurrency } from '../components/shared/CategoryHelpers';
+import { ExportButtonGroup, PageHeader, LoadingSpinner } from '../components/shared/UIHelpers';
 import { 
   exportToCSV, 
   exportToExcel, 
@@ -92,60 +93,33 @@ export default function Home() {
   };
 
   if (expensesLoading || reportsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600" />
-      </div>
-    );
+    return <LoadingSpinner size="lg" />;
   }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}
-          </h1>
-          <p className="text-gray-500 mt-1">Here's your expense overview for {format(now, 'MMMM yyyy')}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to={createPageUrl('NewExpense')}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200">
-              <Plus className="h-4 w-4 mr-2" />
-              New Expense
-            </Button>
-          </Link>
-          <Link to={createPageUrl('NewReport')}>
-            <Button variant="outline">
-              <FileText className="h-4 w-4 mr-2" />
-              Create Report
-            </Button>
-          </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                Download CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('excel')}>
-                Download Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                Download PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PageHeader 
+        title={`Welcome back, ${user?.full_name?.split(' ')[0] || 'there'}`}
+        subtitle={`Here's your expense overview for ${format(now, 'MMMM yyyy')}`}
+      >
+        <Link to={createPageUrl('NewExpense')}>
+          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
+            <Plus className="h-4 w-4 mr-2" />
+            New Expense
+          </Button>
+        </Link>
+        <Link to={createPageUrl('NewReport')}>
+          <Button variant="outline" className="rounded-md font-medium h-10 px-5 w-full sm:w-auto">
+            <FileText className="h-4 w-4 mr-2" />
+            Create Report
+          </Button>
+        </Link>
+        <ExportButtonGroup onExport={handleExport} />
+      </PageHeader>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-fr">
         <StatsCard
           title="Reimbursed This Month"
           value={formatCurrency(reimbursedThisMonth, baseCurrency)}
