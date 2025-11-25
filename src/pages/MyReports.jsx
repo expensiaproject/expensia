@@ -7,10 +7,10 @@ import { format } from 'date-fns';
 import {
   Plus,
   Search,
-  Download,
   Eye,
   MoreHorizontal,
   FileText,
+  FileSpreadsheet,
   Trash2,
   Send
 } from 'lucide-react';
@@ -50,7 +50,6 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency, getCategoryLabel } from '../components/shared/CategoryHelpers';
 import {
-  exportToCSV,
   exportToExcel,
   exportToPDF,
   prepareReportDataForExport,
@@ -127,16 +126,10 @@ export default function MyReports() {
     const data = prepareReportDataForExport(filteredReports);
     const filename = generateExportFilename(type, false).replace('Export', 'Reports');
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, filename);
-        break;
-      case 'excel':
-        exportToExcel(data, filename);
-        break;
-      case 'pdf':
-        exportToPDF(data, 'My Reports', filename);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, filename);
+    } else if (type === 'pdf') {
+      exportToPDF(data, 'My Reports', filename);
     }
   };
 
@@ -145,16 +138,10 @@ export default function MyReports() {
     const data = prepareExpenseDataForExport(expenses);
     const filename = `Expensia_Report_${report.title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}`;
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, `${filename}.csv`);
-        break;
-      case 'excel':
-        exportToExcel(data, `${filename}.xlsx`);
-        break;
-      case 'pdf':
-        exportToPDF(data, `Report: ${report.title}`, `${filename}.pdf`);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, `${filename}.xlsx`);
+    } else if (type === 'pdf') {
+      exportToPDF(data, `Report: ${report.title}`, `${filename}.pdf`);
     }
   };
 
@@ -268,17 +255,13 @@ export default function MyReports() {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'csv')}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Export CSV
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'excel')}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Export Excel
+                              <FileSpreadsheet className="h-4 w-4 mr-2" />
+                              Download Excel
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'pdf')}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Export PDF
+                              <FileText className="h-4 w-4 mr-2" />
+                              Download PDF
                             </DropdownMenuItem>
                             {report.status === 'open' && (
                               <>
