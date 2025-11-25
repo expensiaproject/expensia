@@ -237,7 +237,9 @@ Provide natural English translations:`,
       // Step 6: Set confidence and warning
       setOcrConfidence(ocrResult.confidence_score);
       if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
-        setOcrWarning('Some receipt values may be incomplete. Please review before submitting.');
+        setOcrWarning("We couldn't confidently read this receipt. Please fill in the details manually.");
+      } else {
+        setOcrWarning('Receipt processed. Please review the extracted values before submitting.');
       }
       
       // Step 7: Store full extraction data
@@ -249,16 +251,16 @@ Provide natural English translations:`,
         translatedDescription: translatedData.description
       });
       
-      // Step 8: Autofill form fields with translated values
+      // Step 8: Autofill form fields with translated values (only fill empty fields)
       setForm(f => ({
         ...f,
-        merchant: translatedData.merchant || ocrResult.merchant || f.merchant,
-        date: ocrResult.date || f.date,
-        originalCurrency: ocrResult.currency || f.originalCurrency,
-        originalAmount: ocrResult.total_amount?.toString() || f.originalAmount,
-        taxAmount: ocrResult.tax_amount?.toString() || f.taxAmount,
-        description: translatedData.description || ocrResult.items_description || f.description,
-        category: ocrResult.category || f.category,
+        merchant: f.merchant || translatedData.merchant || ocrResult.merchant || '',
+        date: f.date || ocrResult.date || format(new Date(), 'yyyy-MM-dd'),
+        originalCurrency: f.originalCurrency === 'USD' && ocrResult.currency ? ocrResult.currency : f.originalCurrency,
+        originalAmount: f.originalAmount || ocrResult.total_amount?.toString() || '',
+        taxAmount: f.taxAmount || ocrResult.tax_amount?.toString() || '',
+        description: f.description || translatedData.description || ocrResult.items_description || '',
+        category: f.category || ocrResult.category || '',
       }));
       
     } catch (error) {
@@ -425,9 +427,20 @@ Provide natural English translations:`,
                     </div>
                   )}
                   {ocrWarning && (
-                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-amber-700 text-sm">
-                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                    <div className={`mt-2 p-2 rounded-lg border ${
+                      ocrConfidence && ocrConfidence >= 60 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-amber-50 border-amber-200'
+                    }`}>
+                      <div className={`flex items-center gap-2 text-sm ${
+                        ocrConfidence && ocrConfidence >= 60 
+                          ? 'text-green-700' 
+                          : 'text-amber-700'
+                      }`}>
+                        {ocrConfidence && ocrConfidence >= 60 
+                          ? <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                          : <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        }
                         {ocrWarning}
                       </div>
                     </div>
@@ -458,8 +471,11 @@ Provide natural English translations:`,
                   {isUploading || isExtracting ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
-                      <span className="text-gray-600">
-                        {isExtracting ? 'Extracting data with AI...' : 'Uploading...'}
+                      <span className="text-gray-600 font-medium">
+                        {isExtracting ? 'Reading receipt…' : 'Uploading...'}
+                      </span>
+                      <span className="text-sm text-gray-400">
+                        {isExtracting ? 'AI is extracting expense details' : 'Please wait'}
                       </span>
                     </div>
                   ) : (
