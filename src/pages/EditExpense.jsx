@@ -11,9 +11,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Receipt,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
-// Sparkles is already imported for OCR feedback
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,6 +81,7 @@ export default function EditExpense() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState(null);
   const [ocrWarning, setOcrWarning] = useState(null);
+  const [ocrSuccess, setOcrSuccess] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
   const [errors, setErrors] = useState({});
 
@@ -135,32 +136,14 @@ export default function EditExpense() {
     }
   }, [form.paymentMethod, form.originalAmount, form.amountInBase, form.fxRate]);
 
-  const handleReceiptUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    const fileExtension = file.name.toLowerCase().split('.').pop();
-    const validExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
-    
-    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
-      setErrors(e => ({ ...e, receipt: 'Please upload a JPG, PNG, or PDF file' }));
-      return;
-    }
-    
-    setIsUploading(true);
+  // Process receipt with OCR
+  const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
+    setIsExtracting(true);
     setOcrWarning(null);
+    setOcrSuccess(null);
     setOcrConfidence(null);
     
     try {
-      // Step 1: Upload the file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setForm(f => ({ ...f, receiptUrl: file_url }));
-      
-      // Step 2: Automatic OCR processing
-      setIsExtracting(true);
-      
       const ocrResult = await base44.integrations.Core.InvokeLLM({
         prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
 
@@ -171,18 +154,18 @@ export default function EditExpense() {
 
 Extract these structured fields:
 - merchant: vendor/store name
-- date: transaction date (format as YYYY-MM-DD)
+- date: transaction date (format as YYYY-MM-DD if possible, otherwise leave empty)
 - currency: currency code (USD, EUR, JPY, CNY, SGD, etc.)
-- total_amount: final total amount (number only)
+- total_amount: final total amount (number only, no currency symbol)
 - tax_amount: tax/VAT amount if visible (number only)
 - items_description: brief summary of purchased items
 - category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
 
 Provide:
 - raw_ocr_text: all text exactly as read from receipt
-- detected_language: language code (en, ja, zh, ko, etc.)
+- detected_language: language code (en, ja, zh, ko, id, etc.)
 - confidence_score: your confidence percentage (0-100)`,
-        file_urls: file_url,
+        file_urls: fileUrl,
         response_json_schema: {
           type: 'object',
           properties: {
@@ -200,61 +183,74 @@ Provide:
         }
       });
       
+      console.log('OCR Result:', ocrResult);
+      
+      // Save raw OCR to extractedFieldsOriginal
+      const extractedFieldsOriginal = {
+        raw_text: ocrResult.raw_ocr_text,
+        language: ocrResult.detected_language,
+        confidence: ocrResult.confidence_score,
+        merchant_original: ocrResult.merchant,
+        date_original: ocrResult.date,
+        total_amount_original: ocrResult.total_amount,
+        tax_amount_original: ocrResult.tax_amount,
+        currency_original: ocrResult.currency,
+        items_original: ocrResult.items_description,
+        category_original: ocrResult.category
+      };
+      
       // Translate if not English
       let translatedData = {
-        merchant: ocrResult.merchant,
-        description: ocrResult.items_description
+        merchant: ocrResult.merchant || '',
+        description: ocrResult.items_description || ''
       };
       
       const needsTranslation = ocrResult.detected_language && 
         !['en', 'eng', 'english'].includes(ocrResult.detected_language.toLowerCase());
       
       if (needsTranslation && (ocrResult.merchant || ocrResult.items_description)) {
-        const translationResult = await base44.integrations.Core.InvokeLLM({
-          prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English:
+        try {
+          const translationResult = await base44.integrations.Core.InvokeLLM({
+            prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English:
 
 Merchant name: ${ocrResult.merchant || 'N/A'}
 Items/Description: ${ocrResult.items_description || 'N/A'}
 
 Provide natural English translations:`,
-          response_json_schema: {
-            type: 'object',
-            properties: {
-              merchant_english: { type: 'string' },
-              description_english: { type: 'string' }
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                merchant_english: { type: 'string' },
+                description_english: { type: 'string' }
+              }
             }
-          }
-        });
-        
-        translatedData = {
-          merchant: translationResult.merchant_english || ocrResult.merchant,
-          description: translationResult.description_english || ocrResult.items_description
-        };
+          });
+          
+          translatedData = {
+            merchant: translationResult.merchant_english || ocrResult.merchant || '',
+            description: translationResult.description_english || ocrResult.items_description || ''
+          };
+        } catch (translationError) {
+          console.error('Translation failed:', translationError);
+        }
       }
       
-      // Set confidence and warning
-      setOcrConfidence(ocrResult.confidence_score);
-      if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
-        setOcrWarning("We couldn't confidently read this receipt. Please fill in the details manually.");
-      } else {
-        setOcrWarning('Receipt processed. Please review the extracted values before submitting.');
-      }
-      
-      // Save OCR data structures
-      const extractedFieldsOriginal = {
-        raw_text: ocrResult.raw_ocr_text,
-        language: ocrResult.detected_language,
-        confidence: ocrResult.confidence_score,
-        merchant_original: ocrResult.merchant,
-        items_original: ocrResult.items_description
-      };
-      
+      // Save translation to extractedFieldsEnglish
       const extractedFieldsEnglish = {
         merchant: translatedData.merchant,
         description: translatedData.description,
+        date: ocrResult.date,
+        total_amount: ocrResult.total_amount,
+        tax_amount: ocrResult.tax_amount,
+        currency: ocrResult.currency,
+        category: ocrResult.category,
         source_language: ocrResult.detected_language
       };
       
+      // Set confidence
+      setOcrConfidence(ocrResult.confidence_score || 0);
+      
+      // Store full extraction data
       setExtractedData({
         ...ocrResult,
         extractedFieldsOriginal,
@@ -263,25 +259,80 @@ Provide natural English translations:`,
         translatedDescription: translatedData.description
       });
       
-      // Autofill form fields (only fill empty fields - don't override user data)
+      // Autofill form fields
+      const finalMerchant = translatedData.merchant || ocrResult.merchant || '';
+      const finalDescription = translatedData.description || ocrResult.items_description || '';
+      const finalDate = ocrResult.date || '';
+      const finalCurrency = ocrResult.currency || '';
+      const finalAmount = ocrResult.total_amount ? ocrResult.total_amount.toString() : '';
+      const finalTax = ocrResult.tax_amount ? ocrResult.tax_amount.toString() : '';
+      const finalCategory = ocrResult.category || '';
+      
       setForm(f => ({
         ...f,
-        merchant: f.merchant || translatedData.merchant || ocrResult.merchant || '',
-        date: f.date || ocrResult.date || '',
-        originalCurrency: f.originalCurrency === 'USD' && ocrResult.currency ? ocrResult.currency : f.originalCurrency,
-        originalAmount: f.originalAmount || ocrResult.total_amount?.toString() || '',
-        taxAmount: f.taxAmount || ocrResult.tax_amount?.toString() || '',
-        description: f.description || translatedData.description || ocrResult.items_description || '',
-        category: f.category || ocrResult.category || '',
+        merchant: forceOverwrite ? finalMerchant : (f.merchant || finalMerchant),
+        date: forceOverwrite ? (finalDate || f.date) : (f.date || finalDate),
+        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency === 'USD' && finalCurrency ? finalCurrency : f.originalCurrency),
+        originalAmount: forceOverwrite ? finalAmount : (f.originalAmount || finalAmount),
+        taxAmount: forceOverwrite ? finalTax : (f.taxAmount || finalTax),
+        description: forceOverwrite ? finalDescription : (f.description || finalDescription),
+        category: forceOverwrite ? (finalCategory || f.category) : (f.category || finalCategory),
       }));
+      
+      // Set success/warning message
+      if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
+        setOcrWarning("We couldn't confidently read this receipt. Please fill in the details manually.");
+      } else {
+        setOcrSuccess('Receipt processed. Please review the extracted values.');
+      }
       
     } catch (error) {
       console.error('Failed to process receipt:', error);
       setOcrWarning('OCR processing failed. Please enter details manually.');
     } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleReceiptUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    const fileExtension = file.name.toLowerCase().split('.').pop();
+    const validExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+      setErrors(e => ({ ...e, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+      return;
+    }
+    
+    setIsUploading(true);
+    setOcrWarning(null);
+    setOcrSuccess(null);
+    setOcrConfidence(null);
+    
+    try {
+      // Upload the file
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setForm(f => ({ ...f, receiptUrl: file_url }));
+      setIsUploading(false);
+      
+      // Automatic OCR processing
+      await processReceiptOCR(file_url, false);
+      
+    } catch (error) {
+      console.error('Failed to upload receipt:', error);
+      setOcrWarning('Failed to upload receipt. Please try again.');
       setIsUploading(false);
       setIsExtracting(false);
     }
+  };
+  
+  const handleReprocessReceipt = async () => {
+    if (!form.receiptUrl) return;
+    await processReceiptOCR(form.receiptUrl, true);
   };
 
   const checkPolicies = () => {
@@ -438,38 +489,52 @@ Provide natural English translations:`,
                       </div>
                     </div>
                   )}
+                  {ocrSuccess && (
+                    <div className="mt-2 p-2 rounded-lg border bg-green-50 border-green-200">
+                      <div className="flex items-center gap-2 text-sm text-green-700">
+                        <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                        {ocrSuccess}
+                      </div>
+                    </div>
+                  )}
                   {ocrWarning && (
-                    <div className={`mt-2 p-2 rounded-lg border ${
-                      ocrConfidence && ocrConfidence >= 60 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-amber-50 border-amber-200'
-                    }`}>
-                      <div className={`flex items-center gap-2 text-sm ${
-                        ocrConfidence && ocrConfidence >= 60 
-                          ? 'text-green-700' 
-                          : 'text-amber-700'
-                      }`}>
-                        {ocrConfidence && ocrConfidence >= 60 
-                          ? <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                          : <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                        }
+                    <div className="mt-2 p-2 rounded-lg border bg-amber-50 border-amber-200">
+                      <div className="flex items-center gap-2 text-sm text-amber-700">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                         {ocrWarning}
                       </div>
                     </div>
                   )}
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setForm(f => ({ ...f, receiptUrl: '' }));
-                      setExtractedData(null);
-                      setOcrConfidence(null);
-                      setOcrWarning(null);
-                    }}
-                  >
-                    Remove & Upload New
-                  </Button>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleReprocessReceipt}
+                      disabled={isExtracting}
+                    >
+                      {isExtracting ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                      )}
+                      Re-process Receipt
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setForm(f => ({ ...f, receiptUrl: '' }));
+                        setExtractedData(null);
+                        setOcrConfidence(null);
+                        setOcrWarning(null);
+                        setOcrSuccess(null);
+                      }}
+                    >
+                      Remove & Upload New
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <label className="cursor-pointer">
