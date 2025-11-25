@@ -22,7 +22,6 @@ import RecentExpenses from '../components/dashboard/RecentExpenses';
 import { formatCurrency } from '../components/shared/CategoryHelpers';
 import { ExportButtonGroup, PageHeader, LoadingSpinner } from '../components/shared/UIHelpers';
 import { 
-  exportToCSV, 
   exportToExcel, 
   exportToPDF,
   prepareExpenseDataForExport,
@@ -79,16 +78,10 @@ export default function Home() {
     const data = prepareExpenseDataForExport(expenses);
     const filename = generateExportFilename(type, false);
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, filename);
-        break;
-      case 'excel':
-        exportToExcel(data, filename);
-        break;
-      case 'pdf':
-        exportToPDF(data, 'My Expenses', filename);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, filename);
+    } else if (type === 'pdf') {
+      exportToPDF(data, 'My Expenses', filename);
     }
   };
 

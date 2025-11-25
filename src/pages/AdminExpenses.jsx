@@ -49,13 +49,12 @@ import {
   getPaymentMethodLabel
 } from '../components/shared/CategoryHelpers';
 import {
-  exportToCSV,
   exportToExcel,
   exportToPDF,
   prepareExpenseDataForExport,
   generateExportFilename
 } from '../components/shared/ExportUtils';
-import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
+import { StatusBadge, CategoryBadge, AdminExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
 
 export default function AdminExpenses() {
   const [search, setSearch] = useState('');
@@ -112,16 +111,10 @@ export default function AdminExpenses() {
     const data = prepareExpenseDataForExport(filteredExpenses);
     const filename = generateExportFilename(type, true);
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, filename);
-        break;
-      case 'excel':
-        exportToExcel(data, filename);
-        break;
-      case 'pdf':
-        exportToPDF(data, 'All Expenses Report', filename);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, filename);
+    } else if (type === 'pdf') {
+      exportToPDF(data, 'All Expenses Report', filename);
     }
   };
 
@@ -137,7 +130,7 @@ export default function AdminExpenses() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <PageHeader title="All Expenses" subtitle={`${filteredExpenses.length} expenses`}>
-        <ExportButtonGroup onExport={handleExport} />
+        <AdminExportButtonGroup onExport={handleExport} />
       </PageHeader>
 
       {/* Filters */}

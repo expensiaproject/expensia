@@ -33,13 +33,12 @@ import StatsCard from '../components/dashboard/StatsCard';
 import CategoryChart from '../components/dashboard/CategoryChart';
 import { CATEGORIES, formatCurrency, getCategoryLabel } from '../components/shared/CategoryHelpers';
 import {
-  exportToCSV,
   exportToExcel,
   exportToPDF,
   prepareExpenseDataForExport,
   generateExportFilename
 } from '../components/shared/ExportUtils';
-import { ExportButtonGroup, PageHeader, LoadingSpinner } from '../components/shared/UIHelpers';
+import { AdminExportButtonGroup, PageHeader, LoadingSpinner } from '../components/shared/UIHelpers';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981'];
@@ -123,16 +122,10 @@ export default function AdminDashboard() {
     const data = prepareExpenseDataForExport(filteredExpenses);
     const filename = generateExportFilename(type, true);
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, filename);
-        break;
-      case 'excel':
-        exportToExcel(data, filename);
-        break;
-      case 'pdf':
-        exportToPDF(data, 'All Expenses Report', filename);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, filename);
+    } else if (type === 'pdf') {
+      exportToPDF(data, 'All Expenses Report', filename);
     }
   };
 
@@ -159,7 +152,7 @@ export default function AdminDashboard() {
             <SelectItem value="all">All Time</SelectItem>
           </SelectContent>
         </Select>
-        <ExportButtonGroup onExport={handleExport} />
+        <AdminExportButtonGroup onExport={handleExport} />
       </PageHeader>
 
       {/* Stats Grid */}

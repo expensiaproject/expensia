@@ -59,7 +59,6 @@ import {
   getPaymentMethodLabel
 } from '../components/shared/CategoryHelpers';
 import {
-  exportToCSV,
   exportToExcel,
   exportToPDF,
   prepareExpenseDataForExport,
@@ -123,16 +122,10 @@ export default function MyExpenses() {
     const data = prepareExpenseDataForExport(filteredExpenses);
     const filename = generateExportFilename(type, false);
     
-    switch (type) {
-      case 'csv':
-        exportToCSV(data, filename);
-        break;
-      case 'excel':
-        exportToExcel(data, filename);
-        break;
-      case 'pdf':
-        exportToPDF(data, 'My Expenses', filename);
-        break;
+    if (type === 'excel') {
+      exportToExcel(data, filename);
+    } else if (type === 'pdf') {
+      exportToPDF(data, 'My Expenses', filename);
     }
   };
 
