@@ -67,7 +67,7 @@ export default function AdminDashboard() {
     queryFn: () => base44.entities.User.list(),
   });
 
-  const baseCurrency = 'USD';
+  const baseCurrency = 'SGD';
 
   // Date filtering
   const now = new Date();
