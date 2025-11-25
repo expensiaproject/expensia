@@ -39,6 +39,7 @@ import {
   prepareExpenseDataForExport,
   generateExportFilename
 } from '../components/shared/ExportUtils';
+import { ExportButtonGroup, PageHeader, LoadingSpinner } from '../components/shared/UIHelpers';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981'];
@@ -138,7 +139,7 @@ export default function AdminDashboard() {
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-sm text-gray-500">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -146,47 +147,23 @@ export default function AdminDashboard() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-500 mt-1">Company-wide expense overview</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Select value={periodFilter} onValueChange={setPeriodFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="this_month">This Month</SelectItem>
-              <SelectItem value="last_month">Last Month</SelectItem>
-              <SelectItem value="last_3_months">Last 3 Months</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export All
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                Download CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('excel')}>
-                Download Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                Download PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PageHeader title="Admin Dashboard" subtitle="Company-wide expense overview">
+        <Select value={periodFilter} onValueChange={setPeriodFilter}>
+          <SelectTrigger className="w-40 h-10 rounded-md">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="this_month">This Month</SelectItem>
+            <SelectItem value="last_month">Last Month</SelectItem>
+            <SelectItem value="last_3_months">Last 3 Months</SelectItem>
+            <SelectItem value="all">All Time</SelectItem>
+          </SelectContent>
+        </Select>
+        <ExportButtonGroup onExport={handleExport} />
+      </PageHeader>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-fr">
         <StatsCard
           title="Total Company Spend"
           value={formatCurrency(totalSpend, baseCurrency)}
@@ -218,9 +195,9 @@ export default function AdminDashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Category Breakdown */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Spending by Category</CardTitle>
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -239,9 +216,9 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Cost Center Breakdown */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Spending by Cost Center</CardTitle>
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold">Spending by Cost Center</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -271,58 +248,58 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to={createPageUrl('AdminExpenses')}>
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer rounded-xl h-full">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
                 <Receipt className="h-5 w-5 text-indigo-600" />
               </div>
-              <div>
-                <p className="font-medium text-gray-900">All Expenses</p>
-                <p className="text-sm text-gray-500">{allExpenses.length} total</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-gray-900">All Expenses</p>
+                <p className="text-xs text-gray-500">{allExpenses.length} total</p>
               </div>
             </CardContent>
           </Card>
         </Link>
         
         <Link to={createPageUrl('AdminReports')}>
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer rounded-xl h-full">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
-              <div>
-                <p className="font-medium text-gray-900">All Reports</p>
-                <p className="text-sm text-gray-500">{allReports.length} total</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-gray-900">All Reports</p>
+                <p className="text-xs text-gray-500">{allReports.length} total</p>
               </div>
             </CardContent>
           </Card>
         </Link>
         
         <Link to={createPageUrl('AdminUsers')}>
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer rounded-xl h-full">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
                 <Users className="h-5 w-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="font-medium text-gray-900">Users</p>
-                <p className="text-sm text-gray-500">{allUsers.length} total</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-gray-900">Users</p>
+                <p className="text-xs text-gray-500">{allUsers.length} total</p>
               </div>
             </CardContent>
           </Card>
         </Link>
         
         <Link to={createPageUrl('AdminAuditLogs')}>
-          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer rounded-xl h-full">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
                 <Building2 className="h-5 w-5 text-amber-600" />
               </div>
-              <div>
-                <p className="font-medium text-gray-900">Audit Logs</p>
-                <p className="text-sm text-gray-500">View activity</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-gray-900">Audit Logs</p>
+                <p className="text-xs text-gray-500">View activity</p>
               </div>
             </CardContent>
           </Card>
@@ -331,10 +308,10 @@ export default function AdminDashboard() {
 
       {/* Recent Policy Violations */}
       {policyViolations > 0 && (
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <Card className="border-0 shadow-sm rounded-xl">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
               Recent Policy Violations
             </CardTitle>
           </CardHeader>
