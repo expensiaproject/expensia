@@ -10,6 +10,10 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminExpenses from './pages/AdminExpenses';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
+import AdminPolicies from './pages/AdminPolicies';
+import AdminProjects from './pages/AdminProjects';
+import AdminAuditLogs from './pages/AdminAuditLogs';
+import AdminDataPolicy from './pages/AdminDataPolicy';
 import __Layout from './Layout.jsx';
 
 
@@ -26,6 +30,10 @@ export const PAGES = {
     "AdminExpenses": AdminExpenses,
     "AdminReports": AdminReports,
     "AdminUsers": AdminUsers,
+    "AdminPolicies": AdminPolicies,
+    "AdminProjects": AdminProjects,
+    "AdminAuditLogs": AdminAuditLogs,
+    "AdminDataPolicy": AdminDataPolicy,
 }
 
 export const pagesConfig = {
