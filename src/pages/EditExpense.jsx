@@ -240,8 +240,25 @@ Provide natural English translations:`,
         setOcrWarning('Receipt processed. Please review the extracted values before submitting.');
       }
       
+      // Save OCR data structures
+      const extractedFieldsOriginal = {
+        raw_text: ocrResult.raw_ocr_text,
+        language: ocrResult.detected_language,
+        confidence: ocrResult.confidence_score,
+        merchant_original: ocrResult.merchant,
+        items_original: ocrResult.items_description
+      };
+      
+      const extractedFieldsEnglish = {
+        merchant: translatedData.merchant,
+        description: translatedData.description,
+        source_language: ocrResult.detected_language
+      };
+      
       setExtractedData({
         ...ocrResult,
+        extractedFieldsOriginal,
+        extractedFieldsEnglish,
         translatedMerchant: translatedData.merchant,
         translatedDescription: translatedData.description
       });
@@ -333,6 +350,8 @@ Provide natural English translations:`,
       projectId: form.projectId || null,
       costCenter: form.costCenter,
       receiptUrl: form.receiptUrl,
+      extractedFieldsOriginal: extractedData?.extractedFieldsOriginal || expense?.extractedFieldsOriginal || null,
+      extractedFieldsEnglish: extractedData?.extractedFieldsEnglish || expense?.extractedFieldsEnglish || null,
       policyFlags: warnings,
       status: submitExpense ? 'submitted' : 'draft',
     };
