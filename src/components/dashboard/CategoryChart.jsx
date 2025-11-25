@@ -30,12 +30,12 @@ export default function CategoryChart({ expenses, baseCurrency = 'USD' }) {
 
   if (categoryData.length === 0) {
     return (
-      <Card className="bg-white border-0 shadow-sm">
-        <CardHeader>
+      <Card className="bg-white border-0 shadow-sm rounded-xl h-full">
+        <CardHeader className="border-b border-gray-100">
           <CardTitle className="text-lg font-semibold">Spending by Category</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-64 text-gray-400">
+          <div className="flex items-center justify-center h-64 text-sm text-gray-400">
             No expense data available
           </div>
         </CardContent>
@@ -58,8 +58,8 @@ export default function CategoryChart({ expenses, baseCurrency = 'USD' }) {
   };
 
   return (
-    <Card className="bg-white border-0 shadow-sm">
-      <CardHeader>
+    <Card className="bg-white border-0 shadow-sm rounded-xl h-full">
+      <CardHeader className="border-b border-gray-100">
         <CardTitle className="text-lg font-semibold">Spending by Category</CardTitle>
       </CardHeader>
       <CardContent>
