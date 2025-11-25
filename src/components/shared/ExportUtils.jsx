@@ -11,8 +11,6 @@ export const generateExportFilename = (type, isAdmin = false) => {
   const userType = isAdmin ? 'Admin' : 'User';
   
   switch (type) {
-    case 'csv':
-      return `Expensia_Export_${userType}_${dateStr}.csv`;
     case 'excel':
       return `Expensia_Export_${userType}_${dateStr}.xlsx`;
     case 'pdf':
@@ -50,34 +48,6 @@ export const prepareReportDataForExport = (reports) => {
     'Notes': rep.notes || '',
     'Created': formatDateForExport(rep.created_date)
   }));
-};
-
-export const exportToCSV = (data, filename) => {
-  if (!data || data.length === 0) {
-    alert('No data to export');
-    return;
-  }
-  
-  const headers = Object.keys(data[0]);
-  const csvRows = [];
-  
-  // Add headers
-  csvRows.push(headers.join(','));
-  
-  // Add data rows
-  for (const row of data) {
-    const values = headers.map(header => {
-      const val = row[header];
-      // Escape quotes and wrap in quotes if contains comma
-      const escaped = String(val).replace(/"/g, '""');
-      return `"${escaped}"`;
-    });
-    csvRows.push(values.join(','));
-  }
-  
-  const csvString = csvRows.join('\n');
-  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, filename);
 };
 
 export const exportToExcel = (data, filename) => {
