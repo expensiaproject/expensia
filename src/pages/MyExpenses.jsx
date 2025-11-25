@@ -395,13 +395,18 @@ export default function MyExpenses() {
               Are you sure you want to delete this expense? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, expense: null })}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialog({ open: false, expense: null })}
+              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
+            >
               Cancel
             </Button>
             <Button 
               variant="destructive" 
               onClick={() => deleteDialog.expense && deleteMutation.mutate(deleteDialog.expense.id)}
+              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
             >
               Delete
             </Button>

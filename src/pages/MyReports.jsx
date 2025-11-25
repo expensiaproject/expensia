@@ -386,13 +386,18 @@ export default function MyReports() {
               Are you sure you want to delete this report? The expenses will be unlinked but not deleted.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, report: null })}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialog({ open: false, report: null })}
+              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
+            >
               Cancel
             </Button>
             <Button 
               variant="destructive" 
               onClick={() => deleteDialog.report && deleteMutation.mutate(deleteDialog.report.id)}
+              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
             >
               Delete
             </Button>
