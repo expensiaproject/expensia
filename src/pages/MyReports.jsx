@@ -48,7 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getStatusColor, formatCurrency, getCategoryLabel, getCategoryColor } from '../components/shared/CategoryHelpers';
+import { formatCurrency, getCategoryLabel } from '../components/shared/CategoryHelpers';
 import {
   exportToCSV,
   exportToExcel,
@@ -58,6 +58,7 @@ import {
   generateExportFilename
 } from '../components/shared/ExportUtils';
 import { logAuditEvent } from '../components/shared/AuditLogger';
+import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
 
 export default function MyReports() {
   const queryClient = useQueryClient();
@@ -160,39 +161,15 @@ export default function MyReports() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">My Reports</h1>
-          <p className="text-gray-500 mt-1">{filteredReports.length} reports</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to={createPageUrl('NewReport')}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Report
-            </Button>
-          </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                Download CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('excel')}>
-                Download Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                Download PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PageHeader title="My Reports" subtitle={`${filteredReports.length} reports`}>
+        <Link to={createPageUrl('NewReport')}>
+          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Report
+          </Button>
+        </Link>
+        <ExportButtonGroup onExport={handleExport} />
+      </PageHeader>
 
       {/* Filters */}
       <Card className="border-0 shadow-sm">
@@ -223,57 +200,60 @@ export default function MyReports() {
       </Card>
 
       {/* Table */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Title</TableHead>
-                <TableHead>Period</TableHead>
-                <TableHead>Expenses</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+            <TableHeader className="sticky top-0 z-10">
+              <TableRow className="bg-gray-50 border-b border-gray-200">
+                <TableHead className="font-semibold text-gray-700">Title</TableHead>
+                <TableHead className="font-semibold text-gray-700">Period</TableHead>
+                <TableHead className="font-semibold text-gray-700">Expenses</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Total</TableHead>
+                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto" />
+                  <TableCell colSpan={6}>
+                    <LoadingSpinner />
                   </TableCell>
                 </TableRow>
               ) : filteredReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No reports found</p>
-                    <Link to={createPageUrl('NewReport')}>
-                      <Button variant="link" className="mt-2">Create your first report</Button>
-                    </Link>
+                  <TableCell colSpan={6}>
+                    <EmptyState 
+                      icon={FileText}
+                      title="No reports found"
+                      description="Create your first expense report"
+                      action={
+                        <Link to={createPageUrl('NewReport')}>
+                          <Button variant="link" className="text-indigo-600">Create your first report</Button>
+                        </Link>
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredReports.map((report) => {
+                filteredReports.map((report, index) => {
                   const reportExpenses = getReportExpenses(report.id);
                   return (
-                    <TableRow key={report.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">{report.title}</TableCell>
+                    <TableRow key={report.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <TableCell className="font-medium text-sm">{report.title}</TableCell>
                       <TableCell>
                         {report.periodStart && report.periodEnd ? (
-                          <span className="text-sm">
+                          <span className="text-sm text-gray-600">
                             {format(new Date(report.periodStart), 'MMM d')} - {format(new Date(report.periodEnd), 'MMM d, yyyy')}
                           </span>
                         ) : '-'}
                       </TableCell>
-                      <TableCell>{reportExpenses.length} expenses</TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-sm">{reportExpenses.length} expenses</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums text-sm">
                         {formatCurrency(report.totalAmountBase, baseCurrency)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={getStatusColor(report.status)}>
-                          {report.status}
-                        </Badge>
+                        <StatusBadge status={report.status} />
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -353,9 +333,7 @@ export default function MyReports() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
-                  <Badge className={getStatusColor(viewDialog.report.status)}>
-                    {viewDialog.report.status}
-                  </Badge>
+                  <StatusBadge status={viewDialog.report.status} />
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total Amount</p>
@@ -381,9 +359,7 @@ export default function MyReports() {
                         <p className="font-medium">{expense.merchant}</p>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <span>{expense.date && format(new Date(expense.date), 'MMM d, yyyy')}</span>
-                          <Badge variant="outline" className={getCategoryColor(expense.category)}>
-                            {getCategoryLabel(expense.category)}
-                          </Badge>
+                          <CategoryBadge category={expense.category} label={getCategoryLabel(expense.category)} />
                         </div>
                       </div>
                       <p className="font-medium">

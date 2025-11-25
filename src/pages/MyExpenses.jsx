@@ -53,8 +53,6 @@ import {
 import {
   CATEGORIES,
   getCategoryLabel,
-  getCategoryColor,
-  getStatusColor,
   formatCurrency,
   getPaymentMethodLabel
 } from '../components/shared/CategoryHelpers';
@@ -66,6 +64,7 @@ import {
   generateExportFilename
 } from '../components/shared/ExportUtils';
 import { logAuditEvent } from '../components/shared/AuditLogger';
+import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
 
 export default function MyExpenses() {
   const queryClient = useQueryClient();
@@ -138,39 +137,15 @@ export default function MyExpenses() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">My Expenses</h1>
-          <p className="text-gray-500 mt-1">{filteredExpenses.length} expenses</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to={createPageUrl('NewExpense')}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-2" />
-              New Expense
-            </Button>
-          </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                Download CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('excel')}>
-                Download Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                Download PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <PageHeader title="My Expenses" subtitle={`${filteredExpenses.length} expenses`}>
+        <Link to={createPageUrl('NewExpense')}>
+          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
+            <Plus className="h-4 w-4 mr-2" />
+            New Expense
+          </Button>
+        </Link>
+        <ExportButtonGroup onExport={handleExport} />
+      </PageHeader>
 
       {/* Filters */}
       <Card className="border-0 shadow-sm">
@@ -212,60 +187,63 @@ export default function MyExpenses() {
       </Card>
 
       {/* Table */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Date</TableHead>
-                <TableHead>Merchant</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+            <TableHeader className="sticky top-0 z-10">
+              <TableRow className="bg-gray-50 border-b border-gray-200">
+                <TableHead className="font-semibold text-gray-700">Date</TableHead>
+                <TableHead className="font-semibold text-gray-700">Merchant</TableHead>
+                <TableHead className="font-semibold text-gray-700">Category</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Amount</TableHead>
+                <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto" />
+                  <TableCell colSpan={6}>
+                    <LoadingSpinner />
                   </TableCell>
                 </TableRow>
               ) : filteredExpenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No expenses found</p>
-                    <Link to={createPageUrl('NewExpense')}>
-                      <Button variant="link" className="mt-2">Add your first expense</Button>
-                    </Link>
+                  <TableCell colSpan={6}>
+                    <EmptyState 
+                      icon={Receipt}
+                      title="No expenses found"
+                      description="Get started by adding your first expense"
+                      action={
+                        <Link to={createPageUrl('NewExpense')}>
+                          <Button variant="link" className="text-indigo-600">Add your first expense</Button>
+                        </Link>
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium">
+                filteredExpenses.map((expense, index) => (
+                  <TableRow key={expense.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <TableCell className="font-medium text-sm">
                       {expense.date && format(new Date(expense.date), 'MMM d, yyyy')}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-sm">
                         {expense.merchant}
                         {expense.receiptUrl && (
-                          <Receipt className="h-3 w-3 text-gray-400" />
+                          <Receipt className="h-3.5 w-3.5 text-gray-400" />
                         )}
                         {expense.policyFlags?.length > 0 && (
-                          <AlertTriangle className="h-3 w-3 text-amber-500" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={getCategoryColor(expense.category)}>
-                        {getCategoryLabel(expense.category)}
-                      </Badge>
+                      <CategoryBadge category={expense.category} label={getCategoryLabel(expense.category)} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="font-medium">
+                    <TableCell className="text-right tabular-nums">
+                      <div className="font-medium text-sm">
                         {formatCurrency(expense.amountInBase, baseCurrency)}
                       </div>
                       {expense.originalCurrency !== baseCurrency && (
@@ -275,9 +253,7 @@ export default function MyExpenses() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={getStatusColor(expense.status)}>
-                        {expense.status}
-                      </Badge>
+                      <StatusBadge status={expense.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
