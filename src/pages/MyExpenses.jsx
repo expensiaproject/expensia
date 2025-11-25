@@ -53,6 +53,8 @@ import {
 import {
   CATEGORIES,
   getCategoryLabel,
+  getCategoryColor,
+  getStatusColor,
   formatCurrency,
   getPaymentMethodLabel
 } from '../components/shared/CategoryHelpers';
@@ -85,7 +87,7 @@ export default function MyExpenses() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = user?.baseCurrency || 'SGD';
 
   const deleteMutation = useMutation({
     mutationFn: async (expenseId) => {
@@ -345,12 +347,6 @@ export default function MyExpenses() {
                   <p className="text-sm text-gray-500">Payment Method</p>
                   <p className="font-medium">{getPaymentMethodLabel(viewDialog.expense.paymentMethod)}</p>
                 </div>
-                {viewDialog.expense.fxRate && (
-                  <div>
-                    <p className="text-sm text-gray-500">FX Rate</p>
-                    <p className="font-medium">{viewDialog.expense.fxRate}</p>
-                  </div>
-                )}
               </div>
               {viewDialog.expense.description && (
                 <div>
