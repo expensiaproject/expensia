@@ -6,6 +6,10 @@ import MyReports from './pages/MyReports';
 import NewReport from './pages/NewReport';
 import EditReport from './pages/EditReport';
 import Assistant from './pages/Assistant';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminExpenses from './pages/AdminExpenses';
+import AdminReports from './pages/AdminReports';
+import AdminUsers from './pages/AdminUsers';
 import __Layout from './Layout.jsx';
 
 
@@ -18,6 +22,10 @@ export const PAGES = {
     "NewReport": NewReport,
     "EditReport": EditReport,
     "Assistant": Assistant,
+    "AdminDashboard": AdminDashboard,
+    "AdminExpenses": AdminExpenses,
+    "AdminReports": AdminReports,
+    "AdminUsers": AdminUsers,
 }
 
 export const pagesConfig = {
