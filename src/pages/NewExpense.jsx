@@ -72,6 +72,8 @@ export default function NewExpense() {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
+  const [ocrConfidence, setOcrConfidence] = useState(null);
+  const [ocrWarning, setOcrWarning] = useState(null);
   const [policyWarnings, setPolicyWarnings] = useState([]);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [errors, setErrors] = useState({});
