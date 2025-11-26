@@ -42,7 +42,7 @@ export default function Assistant() {
   });
 
   const isAdmin = user?.role === 'admin';
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -70,10 +70,8 @@ export default function Assistant() {
       date: e.date,
       merchant: e.merchant,
       category: getCategoryLabel(e.category),
-      amount: e.amountInBase,
-      currency: e.baseCurrency || baseCurrency,
-      originalAmount: e.originalAmount,
-      originalCurrency: e.originalCurrency,
+      amount: e.amount,
+      currency: e.currency || baseCurrency,
       status: e.status
     }));
 
@@ -81,7 +79,7 @@ export default function Assistant() {
       title: r.title,
       periodStart: r.periodStart,
       periodEnd: r.periodEnd,
-      total: r.totalAmountBase,
+      total: r.totalAmount,
       status: r.status
     }));
 
@@ -291,7 +289,7 @@ Instructions:
               {formatCurrency(
                 expenses
                   .filter(e => new Date(e.date).getMonth() === new Date().getMonth())
-                  .reduce((sum, e) => sum + (e.amountInBase || 0), 0),
+                  .reduce((sum, e) => sum + (e.amount || 0), 0),
                 baseCurrency
               )}
             </p>
