@@ -51,7 +51,7 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
   
   // Calculate stats
   const now = new Date();
@@ -65,10 +65,10 @@ export default function Home() {
   
   const reimbursedThisMonth = thisMonthExpenses
     .filter(exp => exp.status === 'reimbursed')
-    .reduce((sum, exp) => sum + (exp.amountInBase || 0), 0);
+    .reduce((sum, exp) => sum + (exp.amount || 0), 0);
     
   const pendingExpenses = expenses.filter(exp => exp.status === 'submitted');
-  const pendingAmount = pendingExpenses.reduce((sum, exp) => sum + (exp.amountInBase || 0), 0);
+  const pendingAmount = pendingExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
   
   const openReports = reports.filter(r => r.status === 'open').length;
   const submittedReports = reports.filter(r => r.status === 'submitted').length;

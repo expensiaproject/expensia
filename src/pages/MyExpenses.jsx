@@ -84,7 +84,7 @@ export default function MyExpenses() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
 
   const deleteMutation = useMutation({
     mutationFn: async (expenseId) => {
@@ -237,13 +237,8 @@ export default function MyExpenses() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       <div className="font-medium text-sm">
-                        {formatCurrency(expense.amountInBase, baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                       </div>
-                      {expense.originalCurrency !== baseCurrency && (
-                        <div className="text-xs text-gray-500">
-                          {formatCurrency(expense.originalAmount, expense.originalCurrency)}
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={expense.status} />
@@ -323,15 +318,9 @@ export default function MyExpenses() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Original Amount</p>
+                  <p className="text-sm text-gray-500">Amount</p>
                   <p className="font-medium">
-                    {formatCurrency(viewDialog.expense.originalAmount, viewDialog.expense.originalCurrency)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Amount in Base</p>
-                  <p className="font-medium">
-                    {formatCurrency(viewDialog.expense.amountInBase, viewDialog.expense.baseCurrency)}
+                    {formatCurrency(viewDialog.expense.amount, viewDialog.expense.currency)}
                   </p>
                 </div>
                 <div>

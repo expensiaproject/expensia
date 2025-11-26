@@ -83,7 +83,7 @@ export default function MyReports() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
 
   const submitMutation = useMutation({
     mutationFn: async (report) => {
@@ -237,7 +237,7 @@ export default function MyReports() {
                       </TableCell>
                       <TableCell className="text-sm">{reportExpenses.length} expenses</TableCell>
                       <TableCell className="text-right font-medium tabular-nums text-sm">
-                        {formatCurrency(report.totalAmountBase, baseCurrency)}
+                        {formatCurrency(report.totalAmount, baseCurrency)}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={report.status} />
@@ -321,7 +321,7 @@ export default function MyReports() {
                 <div>
                   <p className="text-sm text-gray-500">Total Amount</p>
                   <p className="font-medium text-lg">
-                    {formatCurrency(viewDialog.report.totalAmountBase, baseCurrency)}
+                    {formatCurrency(viewDialog.report.totalAmount, baseCurrency)}
                   </p>
                 </div>
               </div>
@@ -346,7 +346,7 @@ export default function MyReports() {
                         </div>
                       </div>
                       <p className="font-medium">
-                        {formatCurrency(expense.amountInBase, baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                       </p>
                     </div>
                   ))}

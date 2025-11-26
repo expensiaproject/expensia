@@ -47,13 +47,13 @@ export default function NewReport() {
   const [selectedExpenseIds, setSelectedExpenseIds] = useState([]);
   const [errors, setErrors] = useState({});
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
 
   // Filter expenses that don't already belong to a report
   const availableExpenses = expenses.filter(e => !e.reportId);
 
   const selectedExpenses = availableExpenses.filter(e => selectedExpenseIds.includes(e.id));
-  const totalAmount = selectedExpenses.reduce((sum, e) => sum + (e.amountInBase || 0), 0);
+  const totalAmount = selectedExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const toggleExpense = (expenseId) => {
     setSelectedExpenseIds(prev => 
@@ -108,7 +108,7 @@ export default function NewReport() {
       employeeId: user.id,
       periodStart: form.periodStart,
       periodEnd: form.periodEnd,
-      totalAmountBase: totalAmount,
+      totalAmount: totalAmount,
       status: submitReport ? 'submitted' : 'open',
       notes: form.notes,
     };
@@ -239,13 +239,8 @@ export default function NewReport() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-gray-900">
-                          {formatCurrency(expense.amountInBase, baseCurrency)}
+                          {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                         </p>
-                        {expense.originalCurrency !== baseCurrency && (
-                          <p className="text-xs text-gray-500">
-                            {formatCurrency(expense.originalAmount, expense.originalCurrency)}
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>
