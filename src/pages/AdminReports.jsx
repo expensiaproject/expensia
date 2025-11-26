@@ -254,7 +254,7 @@ export default function AdminReports() {
                       </TableCell>
                       <TableCell className="text-sm">{reportExpenses.length} expenses</TableCell>
                       <TableCell className="text-right font-medium tabular-nums text-sm">
-                        {formatCurrency(report.totalAmountBase, baseCurrency)}
+                        {formatCurrency(report.totalAmount, baseCurrency)}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={report.status} />
@@ -332,7 +332,7 @@ export default function AdminReports() {
                 <div>
                   <p className="text-sm text-gray-500">Total Amount</p>
                   <p className="font-medium text-lg">
-                    {formatCurrency(viewDialog.report.totalAmountBase, baseCurrency)}
+                    {formatCurrency(viewDialog.report.totalAmount, baseCurrency)}
                   </p>
                 </div>
               </div>
@@ -357,7 +357,7 @@ export default function AdminReports() {
                         </div>
                       </div>
                       <p className="font-medium">
-                        {formatCurrency(expense.amountInBase, baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                       </p>
                     </div>
                   ))}
@@ -386,7 +386,7 @@ export default function AdminReports() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Amount</span>
                 <span className="text-xl font-bold text-gray-900">
-                  {formatCurrency(payDialog.report?.totalAmountBase, baseCurrency)}
+                  {formatCurrency(payDialog.report?.totalAmount, baseCurrency)}
                 </span>
               </div>
             </div>

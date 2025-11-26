@@ -90,7 +90,7 @@ export default function AdminDashboard() {
   });
 
   // Calculate stats
-  const totalSpend = filteredExpenses.reduce((sum, e) => sum + (e.amountInBase || 0), 0);
+  const totalSpend = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
   const submittedReports = allReports.filter(r => r.status === 'submitted').length;
   const paidReports = allReports.filter(r => r.status === 'paid').length;
   const policyViolations = filteredExpenses.filter(e => e.policyFlags?.length > 0).length;
@@ -100,20 +100,23 @@ export default function AdminDashboard() {
     const catExpenses = filteredExpenses.filter(e => e.category === cat.value);
     return {
       name: cat.label,
-      value: catExpenses.reduce((sum, e) => sum + (e.amountInBase || 0), 0),
+      value: catExpenses.reduce((sum, e) => sum + (e.amount || 0), 0),
       count: catExpenses.length
     };
   }).filter(c => c.value > 0).sort((a, b) => b.value - a.value);
 
-  // Cost center breakdown
-  const costCenterData = {};
+  // User breakdown (instead of cost center)
+  const userSpendData = {};
   filteredExpenses.forEach(exp => {
-    const cc = exp.costCenter || 'Unassigned';
-    if (!costCenterData[cc]) costCenterData[cc] = 0;
-    costCenterData[cc] += exp.amountInBase || 0;
+    const userId = exp.employeeId || 'Unknown';
+    if (!userSpendData[userId]) userSpendData[userId] = 0;
+    userSpendData[userId] += exp.amount || 0;
   });
-  const costCenterChartData = Object.entries(costCenterData)
-    .map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }))
+  const userChartData = Object.entries(userSpendData)
+    .map(([userId, value]) => {
+      const u = allUsers.find(u => u.id === userId);
+      return { name: u?.full_name || u?.email || 'Unknown', value: Math.round(value * 100) / 100 };
+    })
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
 
@@ -207,16 +210,16 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Cost Center Breakdown */}
+        {/* User Spending Breakdown */}
         <Card className="border-0 shadow-sm rounded-xl">
           <CardHeader className="border-b border-gray-100">
-            <CardTitle className="text-lg font-semibold">Spending by Cost Center</CardTitle>
+            <CardTitle className="text-lg font-semibold">Top Spenders</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={costCenterChartData}
+                  data={userChartData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -224,7 +227,7 @@ export default function AdminDashboard() {
                   paddingAngle={2}
                   dataKey="value"
                 >
-                  {costCenterChartData.map((entry, index) => (
+                  {userChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -322,7 +325,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <p className="font-semibold text-gray-900">
-                        {formatCurrency(expense.amountInBase, baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                       </p>
                     </div>
                     <div className="mt-2 text-sm text-amber-700">

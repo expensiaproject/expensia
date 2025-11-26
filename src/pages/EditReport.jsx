@@ -55,7 +55,7 @@ export default function EditReport() {
   const [selectedExpenseIds, setSelectedExpenseIds] = useState([]);
   const [errors, setErrors] = useState({});
 
-  const baseCurrency = user?.baseCurrency || 'USD';
+  const baseCurrency = 'USD';
 
   // Load report data
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function EditReport() {
   );
 
   const selectedExpenses = availableExpenses.filter(e => selectedExpenseIds.includes(e.id));
-  const totalAmount = selectedExpenses.reduce((sum, e) => sum + (e.amountInBase || 0), 0);
+  const totalAmount = selectedExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const toggleExpense = (expenseId) => {
     setSelectedExpenseIds(prev => 
@@ -149,7 +149,7 @@ export default function EditReport() {
       title: form.title,
       periodStart: form.periodStart,
       periodEnd: form.periodEnd,
-      totalAmountBase: totalAmount,
+      totalAmount: totalAmount,
       status: submitReport ? 'submitted' : 'open',
       notes: form.notes,
     };
@@ -292,7 +292,7 @@ export default function EditReport() {
                         </div>
                       </div>
                       <p className="font-semibold text-gray-900">
-                        {formatCurrency(expense.amountInBase, baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                       </p>
                     </div>
                   </div>
