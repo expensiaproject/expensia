@@ -16,7 +16,7 @@ export default function CategoryChart({ expenses, baseCurrency = 'USD' }) {
       if (!grouped[cat]) {
         grouped[cat] = 0;
       }
-      grouped[cat] += exp.amountInBase || 0;
+      grouped[cat] += exp.amount || 0;
     });
     
     return Object.entries(grouped)

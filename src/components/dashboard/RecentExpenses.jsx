@@ -55,13 +55,8 @@ export default function RecentExpenses({ expenses, baseCurrency = 'USD', showVie
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">
                   <p className="font-semibold text-sm text-gray-900 tabular-nums">
-                    {formatCurrency(expense.amountInBase, baseCurrency)}
+                    {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                   </p>
-                  {expense.originalCurrency !== baseCurrency && (
-                    <p className="text-xs text-gray-500 tabular-nums">
-                      {formatCurrency(expense.originalAmount, expense.originalCurrency)}
-                    </p>
-                  )}
                 </div>
               </div>
             ))}
