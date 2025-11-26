@@ -54,6 +54,7 @@ export default function NewExpense() {
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
+    exchangeRate: '',
   });
 
   const [isUploading, setIsUploading] = useState(false);
@@ -683,6 +684,18 @@ Provide natural English translations:`,
                   onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="exchangeRate">Exchange Rate (Optional)</Label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                step="0.0001"
+                placeholder="e.g., 1.35 (1 USD = 1.35 SGD)"
+                value={form.exchangeRate}
+                onChange={(e) => setForm(f => ({ ...f, exchangeRate: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500">Enter rate if different from default conversion</p>
             </div>
           </div>
         </FormSection>

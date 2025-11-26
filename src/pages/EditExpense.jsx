@@ -62,6 +62,7 @@ export default function EditExpense() {
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
+    exchangeRate: '',
   });
 
   const [isUploading, setIsUploading] = useState(false);
@@ -85,6 +86,7 @@ export default function EditExpense() {
         taxAmount: expense.taxAmount?.toString() || '',
         paymentMethod: expense.paymentMethod || 'card',
         receiptUrl: expense.receiptUrl || '',
+        exchangeRate: expense.exchangeRate?.toString() || '',
       });
     }
   }, [expense]);
@@ -654,6 +656,18 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                   onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="exchangeRate">Exchange Rate (Optional)</Label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                step="0.0001"
+                placeholder="e.g., 1.35"
+                value={form.exchangeRate}
+                onChange={(e) => setForm(f => ({ ...f, exchangeRate: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter rate if different from default conversion</p>
             </div>
           </CardContent>
         </Card>
