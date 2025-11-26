@@ -268,7 +268,8 @@ Provide natural English translations:`,
         extractedFieldsOriginal,
         extractedFieldsEnglish,
         translatedMerchant: translatedData.merchant,
-        translatedDescription: translatedData.description
+        translatedDescription: translatedData.description,
+        extractionMethod
       });
       
       // Autofill form fields

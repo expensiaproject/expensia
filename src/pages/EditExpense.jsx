@@ -89,7 +89,7 @@ export default function EditExpense() {
     }
   }, [expense]);
 
-  // Process receipt with OCR
+  // Process receipt with OCR - handles both images and PDFs
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
     setIsExtracting(true);
     setOcrWarning(null);
@@ -97,33 +97,92 @@ export default function EditExpense() {
     setOcrConfidence(null);
     
     try {
-      const ocrResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an OCR engine processing a receipt image. Extract:
-- merchant: vendor/store name
-- date: transaction date (YYYY-MM-DD)
-- currency: currency code
-- total_amount: final total (number only)
-- tax_amount: tax amount if visible
-- items_description: brief summary
-- category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
-- confidence_score: 0-100`,
-        file_urls: fileUrl,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            raw_ocr_text: { type: 'string' },
-            detected_language: { type: 'string' },
-            confidence_score: { type: 'number' },
-            merchant: { type: 'string' },
-            date: { type: 'string' },
-            currency: { type: 'string' },
-            total_amount: { type: 'number' },
-            tax_amount: { type: 'number' },
-            items_description: { type: 'string' },
-            category: { type: 'string' }
+      const isPdf = fileUrl.toLowerCase().includes('.pdf') || 
+                    fileUrl.toLowerCase().includes('application/pdf');
+      
+      let ocrResult = null;
+      let extractionMethod = 'vision';
+      
+      // For PDFs, first try text extraction
+      if (isPdf) {
+        try {
+          const textExtraction = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: fileUrl,
+            json_schema: {
+              type: 'object',
+              properties: {
+                raw_text: { type: 'string', description: 'All text content from the PDF' },
+                has_text: { type: 'boolean', description: 'Whether the PDF contains extractable text' }
+              }
+            }
+          });
+          
+          if (textExtraction.status === 'success' && 
+              textExtraction.output?.raw_text && 
+              textExtraction.output.raw_text.trim().length > 20) {
+            extractionMethod = 'pdf_text';
+            
+            ocrResult = await base44.integrations.Core.InvokeLLM({
+              prompt: `Parse this receipt/invoice text extracted from PDF:
+
+${textExtraction.output.raw_text}
+
+Extract: merchant, date (YYYY-MM-DD), currency, total_amount, tax_amount, items_description, category (from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]), detected_language, confidence_score (0-100).`,
+              response_json_schema: {
+                type: 'object',
+                properties: {
+                  raw_ocr_text: { type: 'string' },
+                  detected_language: { type: 'string' },
+                  confidence_score: { type: 'number' },
+                  merchant: { type: 'string' },
+                  date: { type: 'string' },
+                  currency: { type: 'string' },
+                  total_amount: { type: 'number' },
+                  tax_amount: { type: 'number' },
+                  items_description: { type: 'string' },
+                  category: { type: 'string' }
+                }
+              }
+            });
           }
+        } catch (pdfTextError) {
+          console.log('PDF text extraction failed:', pdfTextError);
         }
-      });
+      }
+      
+      // Fall back to vision OCR
+      if (!ocrResult) {
+        extractionMethod = isPdf ? 'pdf_vision' : 'vision';
+        ocrResult = await base44.integrations.Core.InvokeLLM({
+          prompt: `OCR this receipt ${isPdf ? 'PDF (may be scanned)' : 'image'}. Extract: merchant, date (YYYY-MM-DD), currency, total_amount, tax_amount, items_description, category (from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]), detected_language, confidence_score (0-100), raw_ocr_text.`,
+          file_urls: fileUrl,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              raw_ocr_text: { type: 'string' },
+              detected_language: { type: 'string' },
+              confidence_score: { type: 'number' },
+              merchant: { type: 'string' },
+              date: { type: 'string' },
+              currency: { type: 'string' },
+              total_amount: { type: 'number' },
+              tax_amount: { type: 'number' },
+              items_description: { type: 'string' },
+              category: { type: 'string' }
+            }
+          }
+        });
+      }
+      
+      const hasData = ocrResult && (
+        ocrResult.merchant || 
+        ocrResult.total_amount || 
+        (ocrResult.raw_ocr_text && ocrResult.raw_ocr_text.trim().length > 10)
+      );
+      
+      if (!hasData) {
+        throw new Error('No meaningful data extracted');
+      }
       
       const extractedFieldsOriginal = {
         raw_text: ocrResult.raw_ocr_text,
@@ -188,7 +247,8 @@ Items: ${ocrResult.items_description || 'N/A'}`,
         extractedFieldsOriginal,
         extractedFieldsEnglish,
         translatedMerchant: translatedData.merchant,
-        translatedDescription: translatedData.description
+        translatedDescription: translatedData.description,
+        extractionMethod
       });
       
       const finalMerchant = translatedData.merchant || ocrResult.merchant || '';
