@@ -274,11 +274,11 @@ export default function AdminReports() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'excel')}>
                               <FileSpreadsheet className="h-4 w-4 mr-2" />
-                              Export Excel
+                              Download Excel
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'pdf')}>
                               <FileText className="h-4 w-4 mr-2" />
-                              Export PDF
+                              Download PDF
                             </DropdownMenuItem>
                             {report.status === 'submitted' && (
                               <>

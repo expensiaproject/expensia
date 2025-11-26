@@ -89,7 +89,7 @@ export function AdminExportButtonGroup({ onExport, disabled = false }) {
         className="h-9 px-4 rounded-md font-medium min-w-[130px]"
       >
         <FileSpreadsheet className="h-4 w-4 mr-2" />
-        Export Excel
+        Download Excel
       </Button>
       <Button
         variant="outline"
@@ -99,7 +99,7 @@ export function AdminExportButtonGroup({ onExport, disabled = false }) {
         className="h-9 px-4 rounded-md font-medium min-w-[130px]"
       >
         <FileText className="h-4 w-4 mr-2" />
-        Export PDF
+        Download PDF
       </Button>
     </div>
   );
