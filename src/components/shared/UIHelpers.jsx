@@ -58,7 +58,7 @@ export function ExportButtonGroup({ onExport, disabled = false }) {
         size="sm"
         onClick={() => onExport('excel')}
         disabled={disabled}
-        className="h-9 px-4 rounded-md font-medium min-w-[140px]"
+        className="h-9 px-4 rounded-md font-medium min-w-[130px]"
       >
         <FileSpreadsheet className="h-4 w-4 mr-2" />
         Download Excel
@@ -68,7 +68,7 @@ export function ExportButtonGroup({ onExport, disabled = false }) {
         size="sm"
         onClick={() => onExport('pdf')}
         disabled={disabled}
-        className="h-9 px-4 rounded-md font-medium min-w-[140px]"
+        className="h-9 px-4 rounded-md font-medium min-w-[130px]"
       >
         <FileText className="h-4 w-4 mr-2" />
         Download PDF
