@@ -83,7 +83,7 @@ export default function MyReports() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'SGD';
+  const baseCurrency = user?.baseCurrency || 'USD';
 
   const submitMutation = useMutation({
     mutationFn: async (report) => {

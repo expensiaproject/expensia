@@ -84,7 +84,7 @@ export default function MyExpenses() {
     enabled: !!user?.id,
   });
 
-  const baseCurrency = user?.baseCurrency || 'SGD';
+  const baseCurrency = user?.baseCurrency || 'USD';
 
   const deleteMutation = useMutation({
     mutationFn: async (expenseId) => {
