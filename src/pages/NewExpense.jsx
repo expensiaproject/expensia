@@ -66,7 +66,7 @@ export default function NewExpense() {
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [errors, setErrors] = useState({});
 
-  // Process receipt with OCR
+  // Process receipt with OCR - handles both images and PDFs
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
     setIsExtracting(true);
     setOcrWarning(null);
@@ -74,13 +74,87 @@ export default function NewExpense() {
     setOcrConfidence(null);
     
     try {
-      const ocrResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
+      // Detect if this is a PDF file
+      const isPdf = fileUrl.toLowerCase().includes('.pdf') || 
+                    fileUrl.toLowerCase().includes('application/pdf');
+      
+      let ocrResult = null;
+      let extractionMethod = 'vision';
+      
+      if (isPdf) {
+        // For PDFs, first try to extract text directly (for text-based PDFs)
+        try {
+          const textExtraction = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: fileUrl,
+            json_schema: {
+              type: 'object',
+              properties: {
+                raw_text: { type: 'string', description: 'All text content from the PDF' },
+                has_text: { type: 'boolean', description: 'Whether the PDF contains extractable text' }
+              }
+            }
+          });
+          
+          // If we got meaningful text from PDF extraction
+          if (textExtraction.status === 'success' && 
+              textExtraction.output?.raw_text && 
+              textExtraction.output.raw_text.trim().length > 20) {
+            extractionMethod = 'pdf_text';
+            
+            // Parse the extracted text with LLM
+            ocrResult = await base44.integrations.Core.InvokeLLM({
+              prompt: `You are parsing receipt/invoice text that was extracted from a PDF. Analyze this text and extract structured data.
 
-1. EXTRACT ALL TEXT from the receipt exactly as it appears
+EXTRACTED TEXT FROM PDF:
+${textExtraction.output.raw_text}
+
+Extract these fields:
+- merchant: vendor/store name
+- date: transaction date (format as YYYY-MM-DD)
+- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, etc.)
+- total_amount: final total amount (number only)
+- tax_amount: tax/VAT amount if visible (number only)
+- items_description: brief summary of items/services
+- category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
+- detected_language: language code of the text (en, ja, zh, ko, id, etc.)
+- confidence_score: your confidence in the extraction (0-100)
+
+Return the raw_ocr_text as the original extracted text.`,
+              response_json_schema: {
+                type: 'object',
+                properties: {
+                  raw_ocr_text: { type: 'string' },
+                  detected_language: { type: 'string' },
+                  confidence_score: { type: 'number' },
+                  merchant: { type: 'string' },
+                  date: { type: 'string' },
+                  currency: { type: 'string' },
+                  total_amount: { type: 'number' },
+                  tax_amount: { type: 'number' },
+                  items_description: { type: 'string' },
+                  category: { type: 'string' }
+                }
+              }
+            });
+          }
+        } catch (pdfTextError) {
+          console.log('PDF text extraction failed, will try vision OCR:', pdfTextError);
+        }
+      }
+      
+      // If we don't have results yet (image file, or PDF text extraction failed/insufficient)
+      // Use vision-based OCR
+      if (!ocrResult) {
+        extractionMethod = isPdf ? 'pdf_vision' : 'vision';
+        ocrResult = await base44.integrations.Core.InvokeLLM({
+          prompt: `You are an OCR engine processing a receipt ${isPdf ? 'PDF document' : 'image'}. Perform these tasks:
+
+1. EXTRACT ALL TEXT from the ${isPdf ? 'document pages' : 'receipt'} exactly as it appears
 2. DETECT the language of the receipt
 3. PARSE structured fields from the text
-4. ESTIMATE your confidence (0-100%) based on image quality and text clarity
+4. ESTIMATE your confidence (0-100%) based on ${isPdf ? 'document' : 'image'} quality and text clarity
+
+${isPdf ? 'Note: This PDF may contain scanned images of receipts. Carefully OCR all visible text from each page.' : ''}
 
 Extract these structured fields:
 - merchant: vendor/store name
@@ -95,23 +169,35 @@ Provide:
 - raw_ocr_text: all text exactly as read from receipt
 - detected_language: language code (en, ja, zh, ko, id, etc.)
 - confidence_score: your confidence percentage (0-100)`,
-        file_urls: fileUrl,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            raw_ocr_text: { type: 'string' },
-            detected_language: { type: 'string' },
-            confidence_score: { type: 'number' },
-            merchant: { type: 'string' },
-            date: { type: 'string' },
-            currency: { type: 'string' },
-            total_amount: { type: 'number' },
-            tax_amount: { type: 'number' },
-            items_description: { type: 'string' },
-            category: { type: 'string' }
+          file_urls: fileUrl,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              raw_ocr_text: { type: 'string' },
+              detected_language: { type: 'string' },
+              confidence_score: { type: 'number' },
+              merchant: { type: 'string' },
+              date: { type: 'string' },
+              currency: { type: 'string' },
+              total_amount: { type: 'number' },
+              tax_amount: { type: 'number' },
+              items_description: { type: 'string' },
+              category: { type: 'string' }
+            }
           }
-        }
-      });
+        });
+      }
+      
+      // Check if we got any meaningful data
+      const hasData = ocrResult && (
+        ocrResult.merchant || 
+        ocrResult.total_amount || 
+        (ocrResult.raw_ocr_text && ocrResult.raw_ocr_text.trim().length > 10)
+      );
+      
+      if (!hasData) {
+        throw new Error('No meaningful data extracted from receipt');
+      }
       
       // Save raw OCR to extractedFieldsOriginal
       const extractedFieldsOriginal = {
