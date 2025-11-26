@@ -57,10 +57,8 @@ export default function EditExpense() {
     merchant: '',
     category: '',
     description: '',
-    originalCurrency: '',
-    originalAmount: '',
-    baseCurrency: 'SGD',
-    amountInBase: '',
+    amount: '',
+    currency: 'USD',
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
@@ -82,10 +80,8 @@ export default function EditExpense() {
         merchant: expense.merchant || '',
         category: expense.category || '',
         description: expense.description || '',
-        originalCurrency: expense.originalCurrency || '',
-        originalAmount: expense.originalAmount?.toString() || '',
-        baseCurrency: expense.baseCurrency || 'SGD',
-        amountInBase: expense.amountInBase?.toString() || '',
+        amount: expense.amount?.toString() || '',
+        currency: expense.currency || 'USD',
         taxAmount: expense.taxAmount?.toString() || '',
         paymentMethod: expense.paymentMethod || 'card',
         receiptUrl: expense.receiptUrl || '',
@@ -102,26 +98,15 @@ export default function EditExpense() {
     
     try {
       const ocrResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an OCR engine processing a receipt image. Perform these tasks:
-
-1. EXTRACT ALL TEXT from the receipt exactly as it appears
-2. DETECT the language of the receipt
-3. PARSE structured fields from the text
-4. ESTIMATE your confidence (0-100%) based on image quality and text clarity
-
-Extract these structured fields:
+        prompt: `You are an OCR engine processing a receipt image. Extract:
 - merchant: vendor/store name
-- date: transaction date (format as YYYY-MM-DD if possible)
-- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, etc.)
-- total_amount: final total amount (number only, no currency symbol)
-- tax_amount: tax/VAT amount if visible (number only)
-- items_description: brief summary of purchased items
+- date: transaction date (YYYY-MM-DD)
+- currency: currency code
+- total_amount: final total (number only)
+- tax_amount: tax amount if visible
+- items_description: brief summary
 - category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
-
-Provide:
-- raw_ocr_text: all text exactly as read from receipt
-- detected_language: language code (en, ja, zh, ko, id, etc.)
-- confidence_score: your confidence percentage (0-100)`,
+- confidence_score: 0-100`,
         file_urls: fileUrl,
         response_json_schema: {
           type: 'object',
@@ -139,8 +124,6 @@ Provide:
           }
         }
       });
-      
-      console.log('OCR Result:', ocrResult);
       
       const extractedFieldsOriginal = {
         raw_text: ocrResult.raw_ocr_text,
@@ -166,12 +149,9 @@ Provide:
       if (needsTranslation && (ocrResult.merchant || ocrResult.items_description)) {
         try {
           const translationResult = await base44.integrations.Core.InvokeLLM({
-            prompt: `Translate the following receipt information from ${ocrResult.detected_language} to English:
-
-Merchant name: ${ocrResult.merchant || 'N/A'}
-Items/Description: ${ocrResult.items_description || 'N/A'}
-
-Provide natural English translations:`,
+            prompt: `Translate from ${ocrResult.detected_language} to English:
+Merchant: ${ocrResult.merchant || 'N/A'}
+Items: ${ocrResult.items_description || 'N/A'}`,
             response_json_schema: {
               type: 'object',
               properties: {
@@ -223,8 +203,8 @@ Provide natural English translations:`,
         ...f,
         merchant: forceOverwrite ? finalMerchant : (f.merchant || finalMerchant),
         date: forceOverwrite ? (finalDate || f.date) : (f.date || finalDate),
-        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency || finalCurrency),
-        originalAmount: forceOverwrite ? finalAmount : (f.originalAmount || finalAmount),
+        currency: forceOverwrite ? (finalCurrency || f.currency) : (f.currency || finalCurrency),
+        amount: forceOverwrite ? finalAmount : (f.amount || finalAmount),
         taxAmount: forceOverwrite ? finalTax : (f.taxAmount || finalTax),
         description: forceOverwrite ? finalDescription : (f.description || finalDescription),
         category: forceOverwrite ? (finalCategory || f.category) : (f.category || finalCategory),
@@ -285,12 +265,12 @@ Provide natural English translations:`,
   const checkPolicies = () => {
     const warnings = [];
     const category = form.category;
-    const amount = parseFloat(form.amountInBase) || 0;
+    const amount = parseFloat(form.amount) || 0;
     
     const policy = policies.find(p => p.category === category);
     if (policy) {
-      if (policy.perTxnLimitBase && amount > policy.perTxnLimitBase) {
-        warnings.push(`Amount exceeds per-transaction limit of ${policy.perTxnLimitBase} for ${getCategoryLabel(category)}`);
+      if (policy.perTxnLimit && amount > policy.perTxnLimit) {
+        warnings.push(`Amount exceeds per-transaction limit of ${policy.perTxnLimit} for ${getCategoryLabel(category)}`);
       }
       if (policy.requiresReceipt && !form.receiptUrl) {
         warnings.push(`Receipt is required for ${getCategoryLabel(category)} expenses`);
@@ -319,7 +299,7 @@ Provide natural English translations:`,
     const newErrors = {};
     if (!form.merchant) newErrors.merchant = 'Merchant is required';
     if (!form.category) newErrors.category = 'Category is required';
-    if (!form.amountInBase) newErrors.amountInBase = 'Final amount is required';
+    if (!form.amount) newErrors.amount = 'Amount is required';
     if (!form.date) newErrors.date = 'Date is required';
     
     if (Object.keys(newErrors).length > 0) {
@@ -334,10 +314,8 @@ Provide natural English translations:`,
       merchant: form.merchant,
       category: form.category,
       description: form.description,
-      originalCurrency: form.originalCurrency || null,
-      originalAmount: form.originalAmount ? parseFloat(form.originalAmount) : null,
-      baseCurrency: form.baseCurrency,
-      amountInBase: parseFloat(form.amountInBase) || 0,
+      amount: parseFloat(form.amount) || 0,
+      currency: form.currency,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
       receiptUrl: form.receiptUrl,
@@ -490,9 +468,6 @@ Provide natural English translations:`,
                       <span className="text-gray-600 font-medium">
                         {isExtracting ? 'Reading receipt…' : 'Uploading...'}
                       </span>
-                      <span className="text-sm text-gray-400">
-                        {isExtracting ? 'AI is extracting expense details' : 'Please wait'}
-                      </span>
                     </div>
                   ) : (
                     <>
@@ -584,96 +559,31 @@ Provide natural English translations:`,
             <CardTitle className="text-lg">Amount</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Card Payment */}
-            {form.paymentMethod === 'card' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="originalCurrency">Receipt Currency</Label>
-                    <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="originalAmount">Amount on Receipt</Label>
-                    <Input
-                      id="originalAmount"
-                      type="number"
-                      step="0.01"
-                      value={form.originalAmount}
-                      onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="baseCurrency">Reporting Currency</Label>
-                    <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="amountInBase">Final Amount in {form.baseCurrency} *</Label>
-                    <Input
-                      id="amountInBase"
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount charged to card"
-                      value={form.amountInBase}
-                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                      className={errors.amountInBase ? 'border-red-500' : ''}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Enter the amount from your card statement</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Cash Payment */}
-            {form.paymentMethod === 'cash' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="baseCurrency">Reporting Currency</Label>
-                  <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="amountInBase">Amount in {form.baseCurrency} *</Label>
-                  <Input
-                    id="amountInBase"
-                    type="number"
-                    step="0.01"
-                    value={form.amountInBase}
-                    onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                    className={errors.amountInBase ? 'border-red-500' : ''}
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))}
+                  className={errors.amount ? 'border-red-500' : ''}
+                />
               </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="currency">Currency</Label>
+                <Select value={form.currency} onValueChange={(v) => setForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="taxAmount">Tax Amount (Optional)</Label>
                 <Input

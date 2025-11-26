@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -44,17 +44,13 @@ export default function NewExpense() {
     queryFn: () => base44.entities.Policy.list(),
   });
 
-  const baseCurrency = user?.baseCurrency || 'SGD';
-
   const [form, setForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     merchant: '',
     category: '',
     description: '',
-    originalCurrency: '',
-    originalAmount: '',
-    baseCurrency: baseCurrency,
-    amountInBase: '',
+    amount: '',
+    currency: 'USD',
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
@@ -69,13 +65,6 @@ export default function NewExpense() {
   const [policyWarnings, setPolicyWarnings] = useState([]);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [errors, setErrors] = useState({});
-
-  // Update base currency when user loads
-  useEffect(() => {
-    if (user?.baseCurrency) {
-      setForm(f => ({ ...f, baseCurrency: user.baseCurrency }));
-    }
-  }, [user]);
 
   // Process receipt with OCR
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
@@ -123,8 +112,6 @@ Provide:
           }
         }
       });
-      
-      console.log('OCR Result:', ocrResult);
       
       // Save raw OCR to extractedFieldsOriginal
       const extractedFieldsOriginal = {
@@ -211,8 +198,8 @@ Provide natural English translations:`,
         ...f,
         merchant: forceOverwrite ? finalMerchant : (f.merchant || finalMerchant),
         date: forceOverwrite ? (finalDate || f.date) : (f.date === format(new Date(), 'yyyy-MM-dd') && finalDate ? finalDate : f.date),
-        originalCurrency: forceOverwrite ? (finalCurrency || f.originalCurrency) : (f.originalCurrency || finalCurrency),
-        originalAmount: forceOverwrite ? finalAmount : (f.originalAmount || finalAmount),
+        currency: forceOverwrite ? (finalCurrency || f.currency) : (f.currency === 'USD' && finalCurrency ? finalCurrency : f.currency),
+        amount: forceOverwrite ? finalAmount : (f.amount || finalAmount),
         taxAmount: forceOverwrite ? finalTax : (f.taxAmount || finalTax),
         description: forceOverwrite ? finalDescription : (f.description || finalDescription),
         category: forceOverwrite ? (finalCategory || f.category) : (f.category || finalCategory),
@@ -273,12 +260,12 @@ Provide natural English translations:`,
   const checkPolicies = () => {
     const warnings = [];
     const category = form.category;
-    const amount = parseFloat(form.amountInBase) || 0;
+    const amount = parseFloat(form.amount) || 0;
     
     const policy = policies.find(p => p.category === category);
     if (policy) {
-      if (policy.perTxnLimitBase && amount > policy.perTxnLimitBase) {
-        warnings.push(`Amount exceeds per-transaction limit of ${policy.perTxnLimitBase} for ${getCategoryLabel(category)}`);
+      if (policy.perTxnLimit && amount > policy.perTxnLimit) {
+        warnings.push(`Amount exceeds per-transaction limit of ${policy.perTxnLimit} for ${getCategoryLabel(category)}`);
       }
       if (policy.requiresReceipt && !form.receiptUrl) {
         warnings.push(`Receipt is required for ${getCategoryLabel(category)} expenses`);
@@ -289,7 +276,7 @@ Provide natural English translations:`,
   };
 
   const checkDuplicates = async () => {
-    if (!user?.id || !form.merchant || !form.amountInBase) return null;
+    if (!user?.id || !form.merchant || !form.amount) return null;
     
     const existingExpenses = await base44.entities.Expense.filter({
       employeeId: user.id,
@@ -298,12 +285,12 @@ Provide natural English translations:`,
     
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const formDate = new Date(form.date).getTime();
-    const formAmount = parseFloat(form.amountInBase);
+    const formAmount = parseFloat(form.amount);
     
     const duplicate = existingExpenses.find(exp => {
       const expDate = new Date(exp.date).getTime();
       const dateDiff = Math.abs(formDate - expDate);
-      const amountDiff = Math.abs((exp.amountInBase || 0) - formAmount);
+      const amountDiff = Math.abs((exp.amount || 0) - formAmount);
       return dateDiff <= sevenDaysMs && amountDiff < formAmount * 0.1;
     });
     
@@ -328,7 +315,7 @@ Provide natural English translations:`,
     const newErrors = {};
     if (!form.merchant) newErrors.merchant = 'Merchant is required';
     if (!form.category) newErrors.category = 'Category is required';
-    if (!form.amountInBase) newErrors.amountInBase = 'Final amount is required';
+    if (!form.amount) newErrors.amount = 'Amount is required';
     if (!form.date) newErrors.date = 'Date is required';
     
     if (Object.keys(newErrors).length > 0) {
@@ -345,10 +332,8 @@ Provide natural English translations:`,
       merchant: form.merchant,
       category: form.category,
       description: form.description,
-      originalCurrency: form.originalCurrency || null,
-      originalAmount: form.originalAmount ? parseFloat(form.originalAmount) : null,
-      baseCurrency: form.baseCurrency,
-      amountInBase: parseFloat(form.amountInBase) || 0,
+      amount: parseFloat(form.amount) || 0,
+      currency: form.currency,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
       receiptUrl: form.receiptUrl,
@@ -573,100 +558,33 @@ Provide natural English translations:`,
         {/* Amount Section */}
         <FormSection title="Amount">
           <div className="space-y-4">
-            {/* Card Payment */}
-            {form.paymentMethod === 'card' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="originalCurrency">Receipt Currency</Label>
-                    <Select value={form.originalCurrency} onValueChange={(v) => setForm(f => ({ ...f, originalCurrency: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="originalAmount">Amount on Receipt</Label>
-                    <Input
-                      id="originalAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={form.originalAmount}
-                      onChange={(e) => setForm(f => ({ ...f, originalAmount: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="baseCurrency">Reporting Currency</Label>
-                    <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="amountInBase">Final Amount in {form.baseCurrency} *</Label>
-                    <Input
-                      id="amountInBase"
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount charged to card"
-                      value={form.amountInBase}
-                      onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                      className={errors.amountInBase ? 'border-red-500' : ''}
-                    />
-                    <p className="text-xs text-gray-500">Enter the amount from your card statement</p>
-                    {errors.amountInBase && <p className="text-sm text-red-500">{errors.amountInBase}</p>}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Cash Payment */}
-            {form.paymentMethod === 'cash' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="baseCurrency">Reporting Currency</Label>
-                  <Select value={form.baseCurrency} onValueChange={(v) => setForm(f => ({ ...f, baseCurrency: v }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="amountInBase">Amount in {form.baseCurrency} *</Label>
-                  <Input
-                    id="amountInBase"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={form.amountInBase}
-                    onChange={(e) => setForm(f => ({ ...f, amountInBase: e.target.value }))}
-                    className={errors.amountInBase ? 'border-red-500' : ''}
-                  />
-                  {errors.amountInBase && <p className="text-sm text-red-500">{errors.amountInBase}</p>}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))}
+                  className={errors.amount ? 'border-red-500' : ''}
+                />
+                {errors.amount && <p className="text-sm text-red-500">{errors.amount}</p>}
               </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="currency">Currency</Label>
+                <Select value={form.currency} onValueChange={(v) => setForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="taxAmount">Tax Amount (Optional)</Label>
                 <Input
