@@ -19,6 +19,7 @@ import {
   Database,
   Plane
 } from 'lucide-react';
+import { AppLogo, LogoIcon } from './components/shared/AppLogo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -76,14 +77,7 @@ export default function Layout({ children, currentPageName }) {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <Receipt className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Expensia
-            </span>
-          </div>
+          <AppLogo size="sm" />
         </div>
         
         <DropdownMenu>
@@ -128,13 +122,8 @@ export default function Layout({ children, currentPageName }) {
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-100">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Receipt className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Expensia
-            </span>
+          <div className="h-16 flex items-center px-6 border-b border-gray-100">
+            <AppLogo size="md" />
           </div>
 
           {/* Navigation */}

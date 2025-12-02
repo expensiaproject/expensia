@@ -87,6 +87,24 @@ export const exportToPDF = (data, title, filename) => {
   
   const headers = Object.keys(data[0]);
   
+  // Expensia logo SVG for PDF header
+  const logoSVG = `
+    <svg width="36" height="36" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 10px;">
+      <defs>
+        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#4F46E5"/>
+          <stop offset="100%" style="stop-color:#9333EA"/>
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="10" fill="url(#logoGradient)"/>
+      <g transform="translate(8, 8)" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </g>
+    </svg>`;
+  
   // Create a printable HTML document that triggers print dialog for Save as PDF
   const html = `
     <!DOCTYPE html>
@@ -97,8 +115,17 @@ export const exportToPDF = (data, title, filename) => {
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1f2937; }
-        .header { margin-bottom: 20px; }
-        h1 { color: #4F46E5; font-size: 24px; margin-bottom: 4px; }
+        .header { margin-bottom: 20px; display: flex; align-items: center; }
+        .logo-text { display: flex; flex-direction: column; }
+        h1 { 
+          background: linear-gradient(135deg, #4F46E5 0%, #9333EA 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          font-size: 24px; 
+          margin-bottom: 2px; 
+          font-weight: 700;
+        }
         .subtitle { color: #6b7280; font-size: 12px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
         th { background-color: #4F46E5; color: white; padding: 8px 6px; text-align: left; font-weight: 600; }
@@ -113,8 +140,11 @@ export const exportToPDF = (data, title, filename) => {
     </head>
     <body>
       <div class="header">
-        <h1>Expensia</h1>
-        <div class="subtitle">${title} • Generated on ${format(new Date(), 'MMMM d, yyyy')}</div>
+        ${logoSVG}
+        <div class="logo-text">
+          <h1>Expensia</h1>
+          <div class="subtitle">${title} • Generated on ${format(new Date(), 'MMMM d, yyyy')}</div>
+        </div>
       </div>
       <table>
         <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
