@@ -76,6 +76,9 @@ export default function ExpenseFormModal({
   const [ocrSuccess, setOcrSuccess] = useState(null);
   const [errors, setErrors] = useState({});
 
+  // Track if OCR has been triggered for current receipt
+  const [ocrTriggeredFor, setOcrTriggeredFor] = useState(null);
+
   // Reset form when modal opens or expense changes
   useEffect(() => {
     if (open) {
@@ -93,6 +96,7 @@ export default function ExpenseFormModal({
           exchangeRate: expense.exchangeRate?.toString() || '',
         });
         setExtractedData(expense.extractedFieldsOriginal ? { extractedFieldsOriginal: expense.extractedFieldsOriginal } : null);
+        setOcrTriggeredFor(null);
       } else {
         setForm({
           date: format(new Date(), 'yyyy-MM-dd'),
@@ -107,11 +111,7 @@ export default function ExpenseFormModal({
           exchangeRate: '',
         });
         setExtractedData(null);
-        
-        // Auto-process if there's an initial receipt URL
-        if (initialReceiptUrl) {
-          processReceiptOCR(initialReceiptUrl, false);
-        }
+        setOcrTriggeredFor(null);
       }
       setErrors({});
       setOcrWarning(null);
@@ -119,6 +119,14 @@ export default function ExpenseFormModal({
       setOcrConfidence(null);
     }
   }, [open, expense, initialReceiptUrl]);
+
+  // Auto-process receipt with OCR when modal opens with initial receipt
+  useEffect(() => {
+    if (open && initialReceiptUrl && !expense && ocrTriggeredFor !== initialReceiptUrl) {
+      setOcrTriggeredFor(initialReceiptUrl);
+      processReceiptOCR(initialReceiptUrl, false);
+    }
+  }, [open, initialReceiptUrl, expense, ocrTriggeredFor]);
 
   // OCR Processing using shared analyzeReceipt AI action
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
