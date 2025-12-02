@@ -13,6 +13,8 @@ import AdminUsers from './pages/AdminUsers';
 import AdminPolicies from './pages/AdminPolicies';
 import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminDataPolicy from './pages/AdminDataPolicy';
+import CreateTripReport from './pages/CreateTripReport';
+import TripReportDetails from './pages/TripReportDetails';
 import __Layout from './Layout.jsx';
 
 
@@ -32,6 +34,8 @@ export const PAGES = {
     "AdminPolicies": AdminPolicies,
     "AdminAuditLogs": AdminAuditLogs,
     "AdminDataPolicy": AdminDataPolicy,
+    "CreateTripReport": CreateTripReport,
+    "TripReportDetails": TripReportDetails,
 }
 
 export const pagesConfig = {
