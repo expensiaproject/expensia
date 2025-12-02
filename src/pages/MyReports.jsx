@@ -64,8 +64,11 @@ import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, 
 
 export default function MyReports() {
   const queryClient = useQueryClient();
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialStatus = urlParams.get('status') || 'all';
+  
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [viewDialog, setViewDialog] = useState({ open: false, report: null });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, report: null });
 
