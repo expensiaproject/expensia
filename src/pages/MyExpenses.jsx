@@ -67,9 +67,12 @@ import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, 
 
 export default function MyExpenses() {
   const queryClient = useQueryClient();
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialStatus = urlParams.get('status') || 'all';
+  
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, expense: null });
   const [cannotDeleteDialog, setCannotDeleteDialog] = useState(false);
   const [viewDialog, setViewDialog] = useState({ open: false, expense: null });
