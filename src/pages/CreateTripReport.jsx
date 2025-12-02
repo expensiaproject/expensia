@@ -153,7 +153,7 @@ export default function CreateTripReport() {
               disabled={createReportMutation.isPending}
               className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              {createReportMutation.isPending ? 'Creating...' : 'Make Expenses'}
+              {createReportMutation.isPending ? 'Creating...' : 'Add Expenses'}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
