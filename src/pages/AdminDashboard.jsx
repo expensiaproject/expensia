@@ -164,6 +164,7 @@ export default function AdminDashboard() {
           value={formatCurrency(totalSpend, baseCurrency)}
           icon={DollarSign}
           color="indigo"
+          href={createPageUrl('AdminExpenses')}
         />
         <StatsCard
           title="Submitted Reports"
@@ -171,12 +172,14 @@ export default function AdminDashboard() {
           subtitle="Awaiting payment"
           icon={FileText}
           color="amber"
+          href={`${createPageUrl('AdminReports')}?status=submitted`}
         />
         <StatsCard
           title="Paid Reports"
           value={paidReports}
           icon={TrendingUp}
           color="green"
+          href={`${createPageUrl('AdminReports')}?status=paid`}
         />
         <StatsCard
           title="Policy Violations"
@@ -184,6 +187,7 @@ export default function AdminDashboard() {
           subtitle="Expenses with flags"
           icon={AlertTriangle}
           color="rose"
+          href={createPageUrl('AdminExpenses')}
         />
       </div>
 
