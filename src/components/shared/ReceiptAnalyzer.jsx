@@ -80,17 +80,18 @@ CRITICAL INSTRUCTIONS:
   }
 
   // Check if we got any core data - be very lenient
-  const hasDate = ocrResult.date && ocrResult.date.length > 0 && ocrResult.date !== 'null' && ocrResult.date !== 'N/A';
-  const hasMerchant = ocrResult.merchant && ocrResult.merchant.length > 0 && ocrResult.merchant !== 'null' && ocrResult.merchant !== 'N/A';
-  const hasAmount = ocrResult.total_amount !== null && ocrResult.total_amount !== undefined && !isNaN(ocrResult.total_amount);
+  const hasDate = ocrResult.date && ocrResult.date.length > 0 && ocrResult.date !== 'null' && ocrResult.date !== 'N/A' && ocrResult.date !== 'undefined';
+  const hasMerchant = ocrResult.merchant && ocrResult.merchant.length > 0 && ocrResult.merchant !== 'null' && ocrResult.merchant !== 'N/A' && ocrResult.merchant !== 'Unknown';
+  const hasAmount = ocrResult.total_amount !== null && ocrResult.total_amount !== undefined && !isNaN(ocrResult.total_amount) && ocrResult.total_amount > 0;
   const hasCurrency = ocrResult.currency && ocrResult.currency.length > 0 && ocrResult.currency !== 'null';
-  const hasDescription = ocrResult.items_description && ocrResult.items_description.length > 0;
-  const hasCategory = ocrResult.category && ocrResult.category.length > 0;
+  const hasDescription = ocrResult.items_description && ocrResult.items_description.length > 0 && ocrResult.items_description !== 'null';
+  const hasCategory = ocrResult.category && ocrResult.category.length > 0 && ocrResult.category !== 'null';
   
-  // Success if ANY useful data was extracted
-  const hasAnyData = hasDate || hasMerchant || hasAmount || hasCurrency || hasDescription || hasCategory;
+  // Success if we have at least merchant OR amount - be very lenient
+  const hasAnyData = hasMerchant || hasAmount;
   
-  if (!hasAnyData) {
+  // Even if hasAnyData is false, still return partial data instead of failing completely
+  if (!hasAnyData && !hasDate && !hasDescription) {
     return {
       success: false,
       error: "Couldn't read this receipt. Please fill in manually.",
