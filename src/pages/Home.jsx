@@ -117,6 +117,7 @@ export default function Home() {
           value={formatCurrency(reimbursedThisMonth, baseCurrency)}
           icon={CheckCircle2}
           color="green"
+          href={`${createPageUrl('MyExpenses')}?status=reimbursed`}
         />
         <StatsCard
           title="Pending Reimbursement"
@@ -124,6 +125,7 @@ export default function Home() {
           subtitle={`${pendingExpenses.length} expenses`}
           icon={Clock}
           color="amber"
+          href={`${createPageUrl('MyExpenses')}?status=submitted`}
         />
         <StatsCard
           title="Open Reports"
@@ -131,6 +133,7 @@ export default function Home() {
           subtitle="Not yet submitted"
           icon={FileText}
           color="purple"
+          href={`${createPageUrl('MyReports')}?status=open`}
         />
         <StatsCard
           title="Submitted Reports"
@@ -138,6 +141,7 @@ export default function Home() {
           subtitle="Awaiting payment"
           icon={TrendingUp}
           color="blue"
+          href={`${createPageUrl('MyReports')}?status=submitted`}
         />
       </div>
 
