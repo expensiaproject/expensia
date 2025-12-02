@@ -30,7 +30,9 @@ export default function TripReportDetails() {
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
   const reportId = urlParams.get('id');
-  const pendingReceiptUrl = urlParams.get('receiptUrl');
+  const pendingReceiptUrlsParam = urlParams.get('receiptUrls');
+  const pendingReceiptUrls = pendingReceiptUrlsParam ? JSON.parse(decodeURIComponent(pendingReceiptUrlsParam)) : [];
+  const [currentReceiptIndex, setCurrentReceiptIndex] = useState(0);
 
   const [deleteExpenseId, setDeleteExpenseId] = useState(null);
   const [isEditingTrip, setIsEditingTrip] = useState(false);
@@ -70,12 +72,12 @@ export default function TripReportDetails() {
     }
   }, [report]);
 
-  // Auto-open expense modal if there's a pending receipt URL
+  // Auto-open expense modal if there are pending receipt URLs
   useEffect(() => {
-    if (pendingReceiptUrl && report) {
-      setExpenseModal({ open: true, expense: null, initialReceiptUrl: decodeURIComponent(pendingReceiptUrl) });
+    if (pendingReceiptUrls.length > 0 && report && currentReceiptIndex < pendingReceiptUrls.length) {
+      setExpenseModal({ open: true, expense: null, initialReceiptUrl: pendingReceiptUrls[currentReceiptIndex] });
     }
-  }, [pendingReceiptUrl, report]);
+  }, [report, currentReceiptIndex]);
 
   // Calculate totals
   const totalAmount = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
@@ -483,13 +485,25 @@ export default function TripReportDetails() {
       {/* Expense Form Modal */}
       <ExpenseFormModal
         open={expenseModal.open}
-        onClose={() => setExpenseModal({ open: false, expense: null })}
+        onClose={() => {
+          setExpenseModal({ open: false, expense: null });
+          // If there are more receipts to process, move to next
+          if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
+            setCurrentReceiptIndex(prev => prev + 1);
+          } else if (pendingReceiptUrls.length > 0) {
+            // All receipts processed, clear URL
+            window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
+          }
+        }}
         reportId={reportId}
         expense={expenseModal.expense}
         initialReceiptUrl={expenseModal.initialReceiptUrl}
         onSuccess={() => {
-          // Clear the receipt URL from the URL after processing
-          if (pendingReceiptUrl) {
+          // Move to next receipt after saving
+          if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
+            setCurrentReceiptIndex(prev => prev + 1);
+          } else if (pendingReceiptUrls.length > 0) {
+            // All receipts processed, clear URL
             window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
           }
         }}
