@@ -218,18 +218,25 @@ export default function ExpenseFormModal({
     
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
-      setErrors(e => ({ ...e, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+      setErrors(err => ({ ...err, receipt: 'Please upload a JPG, PNG, or PDF file' }));
       return;
     }
     
     setIsUploading(true);
     setOcrWarning(null);
     setOcrSuccess(null);
+    setOcrConfidence(null);
+    setExtractedData(null);
     
     try {
+      console.log('Uploading file:', file.name);
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      console.log('File uploaded, URL:', file_url);
       setForm(f => ({ ...f, receiptUrl: file_url }));
       setIsUploading(false);
+      
+      // Immediately trigger OCR after upload
+      console.log('Starting OCR after upload...');
       await processReceiptOCR(file_url, false);
     } catch (error) {
       console.error('Upload failed:', error);
