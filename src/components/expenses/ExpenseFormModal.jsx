@@ -130,17 +130,21 @@ export default function ExpenseFormModal({
       const isPdf = fileUrl.toLowerCase().includes('.pdf') || fileUrl.toLowerCase().includes('application/pdf');
       
       const ocrResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an OCR engine processing a receipt ${isPdf ? 'PDF document' : 'image'}. 
-Extract these fields:
-- merchant: vendor/store name
-- date: transaction date (format as YYYY-MM-DD)
-- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, etc.)
-- total_amount: final total amount (number only)
-- tax_amount: tax/VAT amount if visible (number only)
-- items_description: brief summary of items/services
+        prompt: `You are an expert OCR engine processing a receipt ${isPdf ? 'PDF document' : 'image'}. 
+The receipt may be in any language including English, Korean, Japanese, Chinese, Indonesian, Thai, Vietnamese, etc.
+
+Extract ALL of the following fields. Be thorough and extract as much as possible:
+- merchant: vendor/store name (extract exactly as shown, will be translated later if needed)
+- date: transaction date (convert to YYYY-MM-DD format)
+- currency: currency code (USD, EUR, JPY, CNY, SGD, IDR, KRW, THB, VND, MYR, etc.)
+- total_amount: final total amount as a number only (the grand total / amount paid)
+- tax_amount: tax/VAT/GST amount if visible as a number only
+- items_description: brief summary of items/services purchased
 - category: best match from [air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous]
-- detected_language: language code of the text
-- confidence_score: your confidence percentage (0-100)`,
+- detected_language: ISO language code of the text (e.g., en, ko, ja, zh, id, th, vi)
+- confidence_score: your confidence percentage (0-100) based on image quality and readability
+
+Important: Extract the TOTAL/GRAND TOTAL amount, not subtotals. Look for keywords like "Total", "Grand Total", "Amount Due", "合計", "총액", "Jumlah", etc.`,
         file_urls: fileUrl,
         response_json_schema: {
           type: 'object',
@@ -159,8 +163,18 @@ Extract these fields:
         }
       });
       
-      const hasData = ocrResult && (ocrResult.merchant || ocrResult.total_amount);
-      if (!hasData) throw new Error('No data extracted');
+      // Check if at least one core field was extracted (date OR merchant OR amount)
+      const hasDate = ocrResult?.date && ocrResult.date.length > 0;
+      const hasMerchant = ocrResult?.merchant && ocrResult.merchant.length > 0;
+      const hasAmount = ocrResult?.total_amount && ocrResult.total_amount > 0;
+      const hasCoreData = hasDate || hasMerchant || hasAmount;
+      
+      if (!hasCoreData) {
+        // No useful data extracted at all
+        setOcrWarning("Couldn't read this receipt. Please fill in manually.");
+        setIsExtracting(false);
+        return;
+      }
       
       // Translate if not English
       let translatedMerchant = ocrResult.merchant || '';
@@ -172,9 +186,9 @@ Extract these fields:
       if (needsTranslation && (ocrResult.merchant || ocrResult.items_description)) {
         try {
           const translationResult = await base44.integrations.Core.InvokeLLM({
-            prompt: `Translate to English:
-Merchant: ${ocrResult.merchant || 'N/A'}
-Items: ${ocrResult.items_description || 'N/A'}`,
+            prompt: `Translate the following to English. Keep brand names and proper nouns as-is:
+Merchant name: ${ocrResult.merchant || 'N/A'}
+Items/Description: ${ocrResult.items_description || 'N/A'}`,
             response_json_schema: {
               type: 'object',
               properties: {
@@ -187,6 +201,9 @@ Items: ${ocrResult.items_description || 'N/A'}`,
           translatedDescription = translationResult.description_english || ocrResult.items_description || '';
         } catch (e) {
           console.error('Translation failed:', e);
+          // Use original values if translation fails
+          translatedMerchant = ocrResult.merchant || '';
+          translatedDescription = ocrResult.items_description || '';
         }
       }
       
@@ -204,23 +221,41 @@ Items: ${ocrResult.items_description || 'N/A'}`,
         }
       });
       
-      // Autofill
-      setForm(f => ({
-        ...f,
-        merchant: forceOverwrite ? translatedMerchant : (f.merchant || translatedMerchant),
-        date: forceOverwrite ? (ocrResult.date || f.date) : (f.date === format(new Date(), 'yyyy-MM-dd') && ocrResult.date ? ocrResult.date : f.date),
-        currency: forceOverwrite ? (ocrResult.currency || f.currency) : (f.currency === 'USD' && ocrResult.currency ? ocrResult.currency : f.currency),
-        amount: forceOverwrite ? (ocrResult.total_amount?.toString() || '') : (f.amount || ocrResult.total_amount?.toString() || ''),
-        taxAmount: forceOverwrite ? (ocrResult.tax_amount?.toString() || '') : (f.taxAmount || ocrResult.tax_amount?.toString() || ''),
-        description: forceOverwrite ? translatedDescription : (f.description || translatedDescription),
-        category: forceOverwrite ? (ocrResult.category || f.category) : (f.category || ocrResult.category),
-      }));
+      // Autofill - only fill empty fields unless forceOverwrite is true
+      setForm(f => {
+        const todayDate = format(new Date(), 'yyyy-MM-dd');
+        const isDateDefault = f.date === todayDate;
+        const isCurrencyDefault = f.currency === 'USD';
+        
+        return {
+          ...f,
+          // Merchant: fill if empty or force overwrite
+          merchant: forceOverwrite ? (translatedMerchant || f.merchant) : (f.merchant || translatedMerchant),
+          // Date: fill if still default today's date or force overwrite
+          date: forceOverwrite ? (ocrResult.date || f.date) : (isDateDefault && ocrResult.date ? ocrResult.date : f.date),
+          // Currency: fill if still default USD or force overwrite
+          currency: forceOverwrite ? (ocrResult.currency || f.currency) : (isCurrencyDefault && ocrResult.currency ? ocrResult.currency : f.currency),
+          // Amount: fill if empty or force overwrite
+          amount: forceOverwrite ? (ocrResult.total_amount?.toString() || f.amount) : (f.amount || ocrResult.total_amount?.toString() || ''),
+          // Tax: fill if empty or force overwrite
+          taxAmount: forceOverwrite ? (ocrResult.tax_amount?.toString() || f.taxAmount) : (f.taxAmount || ocrResult.tax_amount?.toString() || ''),
+          // Description: fill if empty or force overwrite
+          description: forceOverwrite ? (translatedDescription || f.description) : (f.description || translatedDescription),
+          // Category: fill if empty or force overwrite
+          category: forceOverwrite ? (ocrResult.category || f.category) : (f.category || ocrResult.category),
+        };
+      });
       
-      if (ocrResult.confidence_score && ocrResult.confidence_score < 60) {
-        setOcrWarning("Couldn't read receipt clearly. Please verify the details.");
-      } else {
-        setOcrSuccess('Receipt processed. Please review before saving.');
-      }
+      // Success message - show appropriate message based on what was extracted
+      const extractedFields = [];
+      if (hasDate) extractedFields.push('date');
+      if (hasMerchant) extractedFields.push('merchant');
+      if (hasAmount) extractedFields.push('amount');
+      if (ocrResult.currency) extractedFields.push('currency');
+      if (ocrResult.tax_amount) extractedFields.push('tax');
+      
+      setOcrSuccess(`Receipt processed. Please review and complete missing fields.`);
+      
     } catch (error) {
       console.error('OCR failed:', error);
       setOcrWarning("Couldn't read this receipt. Please fill in manually.");
