@@ -253,45 +253,46 @@ export default function MyExpenses() {
                       <StatusBadge status={expense.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
+                      <div className="flex items-center justify-end gap-1">
+                        <Link to={`${createPageUrl('EditExpense')}?id=${expense.id}`}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-indigo-600">
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setViewDialog({ open: true, expense })}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to={`${createPageUrl('EditExpense')}?id=${expense.id}`}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              {expense.status === 'draft' ? 'Edit' : 'View/Edit'}
-                            </Link>
-                          </DropdownMenuItem>
-                          {expense.status === 'draft' && (
-                            <DropdownMenuItem onClick={() => submitMutation.mutate(expense)}>
-                              <Receipt className="h-4 w-4 mr-2" />
-                              Submit
+                        </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-gray-500 hover:text-red-600"
+                          onClick={() => {
+                            if (expense.status === 'draft') {
+                              setDeleteDialog({ open: true, expense });
+                            } else {
+                              setCannotDeleteDialog(true);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewDialog({ open: true, expense })}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-red-600"
-                            onClick={() => {
-                              if (expense.status === 'draft') {
-                                setDeleteDialog({ open: true, expense });
-                              } else {
-                                setCannotDeleteDialog(true);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {expense.status === 'draft' && (
+                              <DropdownMenuItem onClick={() => submitMutation.mutate(expense)}>
+                                <Receipt className="h-4 w-4 mr-2" />
+                                Submit
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
