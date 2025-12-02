@@ -15,8 +15,7 @@ import {
   ChevronDown,
   Bot,
   Database,
-  Plane,
-  Code
+  Plane
 } from 'lucide-react';
 import { AppLogo, LogoIcon } from './components/shared/AppLogo';
 import { Button } from '@/components/ui/button';
@@ -54,7 +53,6 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Users', page: 'AdminUsers', icon: Users },
     { name: 'Audit Logs', page: 'AdminAuditLogs', icon: History },
     { name: 'Data Settings', page: 'AdminDataPolicy', icon: Database },
-    { name: 'Code Editor', page: 'AdminCodeEditor', icon: Code },
   ];
 
   const navItems = isAdmin ? [...userNavItems, ...adminNavItems] : userNavItems;

@@ -10,7 +10,6 @@ import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminDataPolicy from './pages/AdminDataPolicy';
 import CreateTripReport from './pages/CreateTripReport';
 import TripReportDetails from './pages/TripReportDetails';
-import AdminCodeEditor from './pages/AdminCodeEditor';
 import __Layout from './Layout.jsx';
 
 
@@ -27,7 +26,6 @@ export const PAGES = {
     "AdminDataPolicy": AdminDataPolicy,
     "CreateTripReport": CreateTripReport,
     "TripReportDetails": TripReportDetails,
-    "AdminCodeEditor": AdminCodeEditor,
 }
 
 export const pagesConfig = {
