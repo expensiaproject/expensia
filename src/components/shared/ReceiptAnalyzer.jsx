@@ -23,21 +23,25 @@ export async function analyzeReceipt(fileUrl) {
   try {
     // Step 1: Extract data from receipt using Vision AI
     ocrResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert receipt OCR system. Analyze this ${isPdf ? 'PDF document' : 'image'} carefully.
+      prompt: `You are an expert receipt and invoice OCR system. Carefully analyze this ${isPdf ? 'PDF document' : 'image'} of a receipt, invoice, or bill.
 
-This is a photo of a receipt/invoice. Extract ALL information you can see:
+IMPORTANT: This is definitely a receipt/invoice image. Extract ALL visible information:
 
-1. **merchant**: Store/business name (usually at top of receipt, in header or logo area)
-2. **date**: Transaction date in YYYY-MM-DD format (look for dates like 02/12/2025, Dec 2 2025, 2025-12-02, etc.)
-3. **total_amount**: Final total amount (number only, look for "Total", "TOTAL", "Amount", "Grand Total", or the largest number at bottom)
-4. **tax_amount**: Tax/VAT/GST if shown (number only, 0 if not visible)
-5. **currency**: Currency code (SGD for Singapore, USD, EUR, JPY, KRW, IDR, THB, MYR, etc.) - infer from location/symbols
-6. **items_description**: What was purchased (brief list of items)
-7. **category**: One of: entertainment_hospitality (food/restaurants), local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
-8. **detected_language**: Language code (en, zh, ja, ko, id, th, ms, vi)
-9. **confidence_score**: Your confidence 0-100
+1. **merchant**: The store, restaurant, company, or business name (usually prominent at the top)
+2. **date**: Transaction date - convert to YYYY-MM-DD format. Today is 2025-12-02 for reference.
+3. **total_amount**: The final total/amount paid (just the number, no currency symbol). Look for "Total", "Grand Total", "Amount Due", or the final/largest amount.
+4. **tax_amount**: Tax/VAT/GST amount if shown (number only), use 0 if not visible
+5. **currency**: 3-letter currency code (USD, SGD, EUR, JPY, KRW, CNY, THB, MYR, IDR, PHP, VND, TWD, HKD, AUD, GBP, etc.) - infer from country/symbols/text
+6. **items_description**: Brief description of what was purchased
+7. **category**: Classify as one of: entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
+8. **detected_language**: Primary language (en, zh, ja, ko, id, th, ms, vi, etc.)
+9. **confidence_score**: Your confidence level 0-100
 
-CRITICAL: Even for blurry/unclear images, provide your BEST GUESS for each field. Do not leave fields empty - use reasonable estimates based on what you can see.`,
+CRITICAL INSTRUCTIONS:
+- ALWAYS provide values for merchant, total_amount, and currency - make your best guess
+- If text is blurry or unclear, still provide your best interpretation
+- For amounts, extract just the number (e.g., 25.50 not $25.50)
+- Never return null or empty strings - always guess based on context`,
       file_urls: fileUrl,
       response_json_schema: {
         type: 'object',
