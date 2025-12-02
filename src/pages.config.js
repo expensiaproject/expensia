@@ -7,7 +7,6 @@ import AdminExpenses from './pages/AdminExpenses';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminAuditLogs from './pages/AdminAuditLogs';
-import AdminDataPolicy from './pages/AdminDataPolicy';
 import CreateTripReport from './pages/CreateTripReport';
 import TripReportDetails from './pages/TripReportDetails';
 import __Layout from './Layout.jsx';
@@ -23,7 +22,6 @@ export const PAGES = {
     "AdminReports": AdminReports,
     "AdminUsers": AdminUsers,
     "AdminAuditLogs": AdminAuditLogs,
-    "AdminDataPolicy": AdminDataPolicy,
     "CreateTripReport": CreateTripReport,
     "TripReportDetails": TripReportDetails,
 }
