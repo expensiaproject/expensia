@@ -8,7 +8,6 @@ import {
   Receipt,
   FileText,
   Users,
-  Shield,
   History,
   LogOut,
   Menu,
@@ -16,7 +15,8 @@ import {
   ChevronDown,
   Bot,
   Database,
-  Plane
+  Plane,
+  Code
 } from 'lucide-react';
 import { AppLogo, LogoIcon } from './components/shared/AppLogo';
 import { Button } from '@/components/ui/button';
@@ -52,9 +52,9 @@ export default function Layout({ children, currentPageName }) {
     { name: 'All Expenses', page: 'AdminExpenses', icon: Receipt },
     { name: 'All Reports', page: 'AdminReports', icon: FileText },
     { name: 'Users', page: 'AdminUsers', icon: Users },
-    { name: 'Policies', page: 'AdminPolicies', icon: Shield },
     { name: 'Audit Logs', page: 'AdminAuditLogs', icon: History },
     { name: 'Data Settings', page: 'AdminDataPolicy', icon: Database },
+    { name: 'Code Editor', page: 'AdminCodeEditor', icon: Code },
   ];
 
   const navItems = isAdmin ? [...userNavItems, ...adminNavItems] : userNavItems;
