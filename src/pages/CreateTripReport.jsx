@@ -28,41 +28,51 @@ export default function CreateTripReport() {
   });
 
   const [errors, setErrors] = useState({});
-  const [pendingReceipt, setPendingReceipt] = useState(null);
+  const [pendingReceipts, setPendingReceipts] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
   const createReportMutation = useMutation({
     mutationFn: (data) => base44.entities.Report.create(data),
     onSuccess: (newReport) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      // Navigate with pending receipt if uploaded
-      const url = pendingReceipt 
-        ? `TripReportDetails?id=${newReport.id}&receiptUrl=${encodeURIComponent(pendingReceipt)}`
+      // Navigate with pending receipts if uploaded
+      const url = pendingReceipts.length > 0
+        ? `TripReportDetails?id=${newReport.id}&receiptUrls=${encodeURIComponent(JSON.stringify(pendingReceipts))}`
         : `TripReportDetails?id=${newReport.id}`;
       navigate(createPageUrl(url));
     },
   });
 
   const handleReceiptUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
     
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      setErrors(err => ({ ...err, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+    const invalidFiles = files.filter(f => !validTypes.includes(f.type));
+    if (invalidFiles.length > 0) {
+      setErrors(err => ({ ...err, receipt: 'Please upload only JPG, PNG, or PDF files' }));
       return;
     }
     
     setIsUploading(true);
+    setErrors(err => ({ ...err, receipt: null }));
+    
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setPendingReceipt(file_url);
+      const uploadPromises = files.map(file => base44.integrations.Core.UploadFile({ file }));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.file_url);
+      setPendingReceipts(prev => [...prev, ...newUrls]);
     } catch (error) {
       console.error('Upload failed:', error);
-      setErrors(err => ({ ...err, receipt: 'Failed to upload receipt' }));
+      setErrors(err => ({ ...err, receipt: 'Failed to upload some receipts' }));
     } finally {
       setIsUploading(false);
+      e.target.value = '';
     }
+  };
+
+  const removeReceipt = (index) => {
+    setPendingReceipts(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
@@ -176,32 +186,36 @@ export default function CreateTripReport() {
           </div>
 
           {/* Receipt Upload Section */}
-          <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-indigo-300 transition-colors">
-            {pendingReceipt ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-center gap-2 text-green-600">
-                  <Upload className="h-5 w-5" />
-                  <span className="font-medium">Receipt ready to process</span>
-                </div>
-                {pendingReceipt.toLowerCase().includes('.pdf') ? (
-                  <p className="text-sm text-gray-500">PDF Receipt uploaded</p>
-                ) : (
-                  <img src={pendingReceipt} alt="Receipt" className="max-h-24 mx-auto rounded-lg" />
-                )}
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setPendingReceipt(null)}
-                >
-                  Remove
-                </Button>
+          <div className="space-y-3">
+            {pendingReceipts.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {pendingReceipts.map((url, index) => (
+                  <div key={index} className="relative group border rounded-lg p-2 bg-gray-50">
+                    {url.toLowerCase().includes('.pdf') ? (
+                      <div className="h-20 flex items-center justify-center">
+                        <span className="text-xs text-gray-500">PDF #{index + 1}</span>
+                      </div>
+                    ) : (
+                      <img src={url} alt={`Receipt ${index + 1}`} className="h-20 w-full object-cover rounded" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeReceipt(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
+            )}
+            
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-indigo-300 transition-colors">
               <label className="cursor-pointer block">
                 <input 
                   type="file" 
                   accept="image/*,.pdf" 
+                  multiple
                   onChange={handleReceiptUpload} 
                   className="hidden" 
                 />
@@ -213,13 +227,19 @@ export default function CreateTripReport() {
                 ) : (
                   <>
                     <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 font-medium">Upload your first receipt (optional)</p>
-                    <p className="text-xs text-gray-400 mt-1">AI will extract details automatically after creating the trip</p>
+                    <p className="text-sm text-gray-600 font-medium">
+                      {pendingReceipts.length > 0 ? 'Add more receipts' : 'Upload receipts (optional)'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {pendingReceipts.length > 0 
+                        ? `${pendingReceipts.length} receipt${pendingReceipts.length > 1 ? 's' : ''} ready • AI will process each one`
+                        : 'Select multiple files • AI will extract details automatically'}
+                    </p>
                   </>
                 )}
               </label>
-            )}
-            {errors.receipt && <p className="text-sm text-red-500 mt-2">{errors.receipt}</p>}
+            </div>
+            {errors.receipt && <p className="text-sm text-red-500">{errors.receipt}</p>}
           </div>
 
           <div className="pt-4 border-t">
