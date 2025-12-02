@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plane, Calendar, Users, MapPin, ArrowRight } from 'lucide-react';
+import { Plane, Calendar, Users, MapPin, ArrowRight, Upload, Loader2 } from 'lucide-react';
 
 export default function CreateTripReport() {
   const navigate = useNavigate();
@@ -28,14 +28,42 @@ export default function CreateTripReport() {
   });
 
   const [errors, setErrors] = useState({});
+  const [pendingReceipt, setPendingReceipt] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const createReportMutation = useMutation({
     mutationFn: (data) => base44.entities.Report.create(data),
     onSuccess: (newReport) => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      navigate(createPageUrl(`TripReportDetails?id=${newReport.id}`));
+      // Navigate with pending receipt if uploaded
+      const url = pendingReceipt 
+        ? `TripReportDetails?id=${newReport.id}&receiptUrl=${encodeURIComponent(pendingReceipt)}`
+        : `TripReportDetails?id=${newReport.id}`;
+      navigate(createPageUrl(url));
     },
   });
+
+  const handleReceiptUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      setErrors(err => ({ ...err, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setPendingReceipt(file_url);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      setErrors(err => ({ ...err, receipt: 'Failed to upload receipt' }));
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = () => {
     const newErrors = {};
@@ -147,10 +175,57 @@ export default function CreateTripReport() {
             </div>
           </div>
 
+          {/* Receipt Upload Section */}
+          <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-indigo-300 transition-colors">
+            {pendingReceipt ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2 text-green-600">
+                  <Upload className="h-5 w-5" />
+                  <span className="font-medium">Receipt ready to process</span>
+                </div>
+                {pendingReceipt.toLowerCase().includes('.pdf') ? (
+                  <p className="text-sm text-gray-500">PDF Receipt uploaded</p>
+                ) : (
+                  <img src={pendingReceipt} alt="Receipt" className="max-h-24 mx-auto rounded-lg" />
+                )}
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setPendingReceipt(null)}
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <label className="cursor-pointer block">
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf" 
+                  onChange={handleReceiptUpload} 
+                  className="hidden" 
+                />
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+                    <span className="text-sm text-gray-600">Uploading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 font-medium">Upload your first receipt (optional)</p>
+                    <p className="text-xs text-gray-400 mt-1">AI will extract details automatically after creating the trip</p>
+                  </>
+                )}
+              </label>
+            )}
+            {errors.receipt && <p className="text-sm text-red-500 mt-2">{errors.receipt}</p>}
+          </div>
+
           <div className="pt-4 border-t">
             <Button
               onClick={handleSubmit}
-              disabled={createReportMutation.isPending}
+              disabled={createReportMutation.isPending || isUploading}
               className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {createReportMutation.isPending ? 'Creating...' : 'Add Expenses'}
