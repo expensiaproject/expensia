@@ -130,6 +130,12 @@ export default function ExpenseFormModal({
 
   // OCR Processing using shared analyzeReceipt AI action
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
+    if (!fileUrl) {
+      console.error('No file URL provided for OCR');
+      return;
+    }
+    
+    console.log('Starting OCR for:', fileUrl);
     setIsExtracting(true);
     setOcrWarning(null);
     setOcrSuccess(null);
@@ -138,6 +144,7 @@ export default function ExpenseFormModal({
     try {
       // Call the AI receipt analyzer
       const result = await analyzeReceipt(fileUrl);
+      console.log('OCR result:', result);
       
       if (!result.success) {
         // No useful data extracted at all
@@ -169,22 +176,28 @@ export default function ExpenseFormModal({
         const isDateDefault = f.date === todayDate;
         const isCurrencyDefault = f.currency === 'USD';
         
+        // Validate extracted currency
+        const validCurrency = data.currency && CURRENCIES.includes(data.currency) ? data.currency : null;
+        
+        // Validate extracted category
+        const validCategory = data.category && CATEGORIES.find(c => c.value === data.category) ? data.category : null;
+        
         return {
           ...f,
           // Merchant: fill if empty or force overwrite
-          merchant: forceOverwrite ? (data.merchant || f.merchant) : (f.merchant || data.merchant),
+          merchant: forceOverwrite ? (data.merchant || f.merchant) : (f.merchant || data.merchant || ''),
           // Date: fill if still default today's date or force overwrite
           date: forceOverwrite ? (data.date || f.date) : (isDateDefault && data.date ? data.date : f.date),
           // Currency: fill if still default USD or force overwrite
-          currency: forceOverwrite ? (data.currency || f.currency) : (isCurrencyDefault && data.currency ? data.currency : f.currency),
+          currency: forceOverwrite ? (validCurrency || f.currency) : (isCurrencyDefault && validCurrency ? validCurrency : f.currency),
           // Amount: fill if empty or force overwrite
-          amount: forceOverwrite ? (data.amount?.toString() || f.amount) : (f.amount || data.amount?.toString() || ''),
+          amount: forceOverwrite ? (data.amount?.toString() || f.amount) : (f.amount || (data.amount ? data.amount.toString() : '')),
           // Tax: fill if empty or force overwrite
-          taxAmount: forceOverwrite ? (data.taxAmount?.toString() || f.taxAmount) : (f.taxAmount || data.taxAmount?.toString() || ''),
+          taxAmount: forceOverwrite ? (data.taxAmount?.toString() || f.taxAmount) : (f.taxAmount || (data.taxAmount ? data.taxAmount.toString() : '')),
           // Description: fill if empty or force overwrite
-          description: forceOverwrite ? (data.description || f.description) : (f.description || data.description),
+          description: forceOverwrite ? (data.description || f.description) : (f.description || data.description || ''),
           // Category: fill if empty or force overwrite
-          category: forceOverwrite ? (data.category || f.category) : (f.category || data.category),
+          category: forceOverwrite ? (validCategory || f.category) : (f.category || validCategory || ''),
         };
       });
       
