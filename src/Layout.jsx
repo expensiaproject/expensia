@@ -16,7 +16,8 @@ import {
   X,
   ChevronDown,
   Bot,
-  Database
+  Database,
+  Plane
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Dashboard', page: 'Home', icon: LayoutDashboard },
     { name: 'My Expenses', page: 'MyExpenses', icon: Receipt },
     { name: 'My Reports', page: 'MyReports', icon: FileText },
+    { name: 'Create Trip', page: 'CreateTripReport', icon: Plane },
     { name: 'AI Assistant', page: 'Assistant', icon: Bot },
   ];
   
