@@ -261,24 +261,22 @@ export default function TripReportDetails() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {expense.status === 'draft' && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleEditExpense(expense.id)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => setDeleteExpenseId(expense.id)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleEditExpense(expense.id)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                           )}
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => setDeleteExpenseId(expense.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     )}
