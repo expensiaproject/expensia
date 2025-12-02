@@ -12,7 +12,10 @@ import {
   FileText,
   FileSpreadsheet,
   Trash2,
-  Send
+  Send,
+  Pencil,
+  MapPin,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,10 +152,10 @@ export default function MyReports() {
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <PageHeader title="My Reports" subtitle={`${filteredReports.length} reports`}>
-        <Link to={createPageUrl('NewReport')}>
+        <Link to={createPageUrl('CreateTripReport')}>
           <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
             <Plus className="h-4 w-4 mr-2" />
-            Create Report
+            Create Trip Report
           </Button>
         </Link>
         <ExportButtonGroup onExport={handleExport} />
@@ -192,8 +195,9 @@ export default function MyReports() {
           <Table>
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="bg-gray-50 border-b border-gray-200">
-                <TableHead className="font-semibold text-gray-700">Title</TableHead>
-                <TableHead className="font-semibold text-gray-700">Period</TableHead>
+                <TableHead className="font-semibold text-gray-700">Trip Name</TableHead>
+                <TableHead className="font-semibold text-gray-700">Trip Dates</TableHead>
+                <TableHead className="font-semibold text-gray-700">Destination</TableHead>
                 <TableHead className="font-semibold text-gray-700">Expenses</TableHead>
                 <TableHead className="text-right font-semibold text-gray-700">Total</TableHead>
                 <TableHead className="font-semibold text-gray-700">Status</TableHead>
@@ -203,20 +207,20 @@ export default function MyReports() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <LoadingSpinner />
                   </TableCell>
                 </TableRow>
               ) : filteredReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <EmptyState 
                       icon={FileText}
                       title="No reports found"
-                      description="Create your first expense report"
+                      description="Create your first trip report"
                       action={
-                        <Link to={createPageUrl('NewReport')}>
-                          <Button variant="link" className="text-indigo-600">Create your first report</Button>
+                        <Link to={createPageUrl('CreateTripReport')}>
+                          <Button variant="link" className="text-indigo-600">Create your first trip report</Button>
                         </Link>
                       }
                     />
@@ -227,15 +231,25 @@ export default function MyReports() {
                   const reportExpenses = getReportExpenses(report.id);
                   return (
                     <TableRow key={report.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                      <TableCell className="font-medium text-sm">{report.title}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        <Link 
+                          to={createPageUrl(`TripReportDetails?id=${report.id}`)}
+                          className="text-indigo-600 hover:underline"
+                        >
+                          {report.title}
+                        </Link>
+                      </TableCell>
                       <TableCell>
-                        {report.periodStart && report.periodEnd ? (
+                        {report.tripStartDate && report.tripEndDate ? (
                           <span className="text-sm text-gray-600">
-                            {format(new Date(report.periodStart), 'MMM d')} - {format(new Date(report.periodEnd), 'MMM d, yyyy')}
+                            {format(new Date(report.tripStartDate), 'MMM d')} - {format(new Date(report.tripEndDate), 'MMM d, yyyy')}
                           </span>
                         ) : '-'}
                       </TableCell>
-                      <TableCell className="text-sm">{reportExpenses.length} expenses</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {report.destination || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">{reportExpenses.length}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums text-sm">
                         {formatCurrency(report.totalAmount, baseCurrency)}
                       </TableCell>
@@ -250,9 +264,11 @@ export default function MyReports() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewDialog({ open: true, report })}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
+                            <DropdownMenuItem asChild>
+                              <Link to={createPageUrl(`TripReportDetails?id=${report.id}`)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleExportReportExpenses(report, 'excel')}>
@@ -269,12 +285,6 @@ export default function MyReports() {
                                 <DropdownMenuItem onClick={() => submitMutation.mutate(report)}>
                                   <Send className="h-4 w-4 mr-2" />
                                   Submit Report
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link to={`${createPageUrl('EditReport')}?id=${report.id}`}>
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   className="text-red-600"
@@ -307,16 +317,30 @@ export default function MyReports() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Period</p>
+                  <p className="text-sm text-gray-500">Trip Dates</p>
                   <p className="font-medium">
-                    {viewDialog.report.periodStart && viewDialog.report.periodEnd
-                      ? `${format(new Date(viewDialog.report.periodStart), 'PPP')} - ${format(new Date(viewDialog.report.periodEnd), 'PPP')}`
+                    {viewDialog.report.tripStartDate && viewDialog.report.tripEndDate
+                      ? `${format(new Date(viewDialog.report.tripStartDate), 'PPP')} - ${format(new Date(viewDialog.report.tripEndDate), 'PPP')}`
                       : '-'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
                   <StatusBadge status={viewDialog.report.status} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Destination</p>
+                  <p className="font-medium flex items-center gap-1">
+                    {viewDialog.report.destination ? (
+                      <><MapPin className="h-4 w-4 text-gray-400" /> {viewDialog.report.destination}</>
+                    ) : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Travelers</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Users className="h-4 w-4 text-gray-400" /> {viewDialog.report.travelerCount || 1}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total Amount</p>
