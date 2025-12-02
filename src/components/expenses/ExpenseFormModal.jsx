@@ -32,6 +32,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CATEGORIES, PAYMENT_METHODS, CURRENCIES, getCategoryLabel } from '@/components/shared/CategoryHelpers';
 import { logAuditEvent } from '@/components/shared/AuditLogger';
+import { analyzeReceipt } from '@/components/shared/ReceiptAnalyzer';
 
 export default function ExpenseFormModal({ 
   open, 
