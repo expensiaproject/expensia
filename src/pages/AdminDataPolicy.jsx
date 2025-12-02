@@ -23,7 +23,7 @@ export default function AdminDataPolicy() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     retentionPeriodYears: 5,
-    lastReviewDate: '',
+    lastReviewDate: format(new Date(), 'yyyy-MM-dd'),
     notes: ''
   });
 
