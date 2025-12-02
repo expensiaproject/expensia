@@ -95,16 +95,10 @@ export default function Home() {
         title={`Welcome back, ${user?.full_name?.split(' ')[0] || 'there'}`}
         subtitle={`Here's your expense overview for ${format(now, 'MMMM yyyy')}`}
       >
-        <Link to={createPageUrl('NewExpense')}>
+        <Link to={createPageUrl('CreateTripReport')}>
           <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
             <Plus className="h-4 w-4 mr-2" />
-            New Expense
-          </Button>
-        </Link>
-        <Link to={createPageUrl('NewReport')}>
-          <Button variant="outline" className="rounded-md font-medium h-10 px-5 w-full sm:w-auto">
-            <FileText className="h-4 w-4 mr-2" />
-            Create Report
+            Create Trip Report
           </Button>
         </Link>
         <ExportButtonGroup onExport={handleExport} />

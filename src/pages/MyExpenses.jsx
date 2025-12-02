@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '../utils';
 import { format } from 'date-fns';
 import {
-  Plus,
   Search,
-  Pencil,
-  Trash2,
   Eye,
-  MoreHorizontal,
   Receipt,
-  AlertTriangle
+  FileText,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -34,47 +30,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  CATEGORIES,
-  getCategoryLabel,
-  getCategoryColor,
-  getStatusColor,
-  formatCurrency,
-  getPaymentMethodLabel
-} from '../components/shared/CategoryHelpers';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CATEGORIES, getCategoryLabel, formatCurrency, getPaymentMethodLabel } from '../components/shared/CategoryHelpers';
 import {
   exportToExcel,
   exportToPDF,
   prepareExpenseDataForExport,
   generateExportFilename
 } from '../components/shared/ExportUtils';
-import { logAuditEvent } from '../components/shared/AuditLogger';
 import { StatusBadge, CategoryBadge, ExportButtonGroup, PageHeader, EmptyState, LoadingSpinner } from '../components/shared/UIHelpers';
 
 export default function MyExpenses() {
-  const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
   const initialStatus = urlParams.get('status') || 'all';
   
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, expense: null });
-  const [cannotDeleteDialog, setCannotDeleteDialog] = useState(false);
   const [viewDialog, setViewDialog] = useState({ open: false, expense: null });
 
   const { data: user } = useQuery({
@@ -84,40 +61,17 @@ export default function MyExpenses() {
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ['myExpenses', user?.id],
-    queryFn: () => base44.entities.Expense.filter({ employeeId: user?.id }, '-date', 200),
+    queryFn: () => base44.entities.Expense.filter({ employeeId: user?.id }, '-date', 500),
+    enabled: !!user?.id,
+  });
+
+  const { data: reports = [] } = useQuery({
+    queryKey: ['myReports', user?.id],
+    queryFn: () => base44.entities.Report.filter({ employeeId: user?.id }),
     enabled: !!user?.id,
   });
 
   const baseCurrency = 'USD';
-
-  const deleteMutation = useMutation({
-    mutationFn: async (expense) => {
-      await base44.entities.Expense.delete(expense.id);
-      // If linked to a report, recalculate total
-      if (expense.reportId) {
-        const reportExpenses = await base44.entities.Expense.filter({ reportId: expense.reportId });
-        const remainingExpenses = reportExpenses.filter(e => e.id !== expense.id);
-        const newTotal = remainingExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-        await base44.entities.Report.update(expense.reportId, { totalAmount: newTotal });
-      }
-      await logAuditEvent(user, 'expense', expense.id, 'delete');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      setDeleteDialog({ open: false, expense: null });
-    },
-  });
-
-  const submitMutation = useMutation({
-    mutationFn: async (expense) => {
-      await base44.entities.Expense.update(expense.id, { status: 'submitted' });
-      await logAuditEvent(user, 'expense', expense.id, 'submit', { from: 'draft', to: 'submitted' });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
-    },
-  });
 
   const filteredExpenses = expenses.filter(exp => {
     const matchesSearch = !search || 
@@ -139,18 +93,33 @@ export default function MyExpenses() {
     }
   };
 
+  const getReportTitle = (reportId) => {
+    if (!reportId) return null;
+    const report = reports.find(r => r.id === reportId);
+    return report?.title || 'Unknown Report';
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <PageHeader title="My Expenses" subtitle={`${filteredExpenses.length} expenses`}>
-        <Link to={createPageUrl('NewExpense')}>
-          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-[180px]">
-            <Plus className="h-4 w-4 mr-2" />
-            New Expense
+        <Link to={createPageUrl('CreateTripReport')}>
+          <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-md font-medium h-10 px-6 w-full sm:w-auto">
+            <FileText className="h-4 w-4 mr-2" />
+            Create Trip Report
           </Button>
         </Link>
         <ExportButtonGroup onExport={handleExport} />
       </PageHeader>
+
+      {/* Info Banner */}
+      <Alert className="bg-blue-50 border-blue-200">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-700">
+          Expenses can only be created inside a Trip Report. To add a new expense, 
+          <Link to={createPageUrl('CreateTripReport')} className="font-medium underline ml-1">create a new trip report</Link> or open an existing one from <Link to={createPageUrl('MyReports')} className="font-medium underline">My Reports</Link>.
+        </AlertDescription>
+      </Alert>
 
       {/* Filters */}
       <Card className="border-0 shadow-sm">
@@ -166,7 +135,7 @@ export default function MyExpenses() {
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-44">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -202,26 +171,27 @@ export default function MyExpenses() {
                 <TableHead className="font-semibold text-gray-700">Category</TableHead>
                 <TableHead className="text-right font-semibold text-gray-700">Amount</TableHead>
                 <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                <TableHead className="font-semibold text-gray-700">Report</TableHead>
                 <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <LoadingSpinner />
                   </TableCell>
                 </TableRow>
               ) : filteredExpenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <EmptyState 
                       icon={Receipt}
                       title="No expenses found"
-                      description="Get started by adding your first expense"
+                      description="Create a trip report to add your first expense"
                       action={
-                        <Link to={createPageUrl('NewExpense')}>
-                          <Button variant="link" className="text-indigo-600">Add your first expense</Button>
+                        <Link to={createPageUrl('CreateTripReport')}>
+                          <Button variant="link" className="text-indigo-600">Create a trip report</Button>
                         </Link>
                       }
                     />
@@ -230,72 +200,40 @@ export default function MyExpenses() {
               ) : (
                 filteredExpenses.map((expense, index) => (
                   <TableRow key={expense.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                    <TableCell className="font-medium text-sm">
-                      {expense.date && format(new Date(expense.date), 'MMM d, yyyy')}
+                    <TableCell className="text-sm">
+                      {expense.date ? format(new Date(expense.date), 'MMM d, yyyy') : '-'}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-sm">
-                        {expense.merchant}
-                        {expense.receiptUrl && (
-                          <Receipt className="h-3.5 w-3.5 text-gray-400" />
-                        )}
-                        {expense.policyFlags?.length > 0 && (
-                          <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
-                        )}
-                      </div>
-                    </TableCell>
+                    <TableCell className="font-medium text-sm">{expense.merchant}</TableCell>
                     <TableCell>
                       <CategoryBadge category={expense.category} label={getCategoryLabel(expense.category)} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      <div className="font-medium text-sm">
-                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
-                      </div>
+                    <TableCell className="text-right font-medium tabular-nums text-sm">
+                      {formatCurrency(expense.amount, expense.currency || baseCurrency)}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={expense.status} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link to={`${createPageUrl('EditExpense')}?id=${expense.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-indigo-600">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-gray-500 hover:text-red-600"
-                          onClick={() => {
-                            if (expense.status === 'draft') {
-                              setDeleteDialog({ open: true, expense });
-                            } else {
-                              setCannotDeleteDialog(true);
-                            }
-                          }}
+                    <TableCell className="text-sm">
+                      {expense.reportId ? (
+                        <Link 
+                          to={createPageUrl(`TripReportDetails?id=${expense.reportId}`)}
+                          className="text-indigo-600 hover:underline"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewDialog({ open: true, expense })}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            {expense.status === 'draft' && (
-                              <DropdownMenuItem onClick={() => submitMutation.mutate(expense)}>
-                                <Receipt className="h-4 w-4 mr-2" />
-                                Submit
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                          {getReportTitle(expense.reportId)}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setViewDialog({ open: true, expense })}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -313,117 +251,115 @@ export default function MyExpenses() {
           </DialogHeader>
           {viewDialog.expense && (
             <div className="space-y-4">
+              {viewDialog.expense.receiptUrl && (
+                <div className="rounded-lg overflow-hidden border bg-gray-50">
+                  {viewDialog.expense.receiptUrl.toLowerCase().includes('.pdf') ? (
+                    <div className="p-6 text-center">
+                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">PDF Receipt</p>
+                      <a 
+                        href={viewDialog.expense.receiptUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 text-sm hover:underline"
+                      >
+                        View PDF
+                      </a>
+                    </div>
+                  ) : (
+                    <img 
+                      src={viewDialog.expense.receiptUrl} 
+                      alt="Receipt" 
+                      className="w-full max-h-48 object-contain"
+                    />
+                  )}
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Date</p>
-                  <p className="font-medium">{format(new Date(viewDialog.expense.date), 'PPP')}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Merchant</p>
+                  <p className="text-xs text-gray-500 mb-1">Merchant</p>
                   <p className="font-medium">{viewDialog.expense.merchant}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Category</p>
-                  <Badge className={getCategoryColor(viewDialog.expense.category)}>
-                    {getCategoryLabel(viewDialog.expense.category)}
-                  </Badge>
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <StatusBadge status={viewDialog.expense.status} />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <Badge className={getStatusColor(viewDialog.expense.status)}>
-                    {viewDialog.expense.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Amount</p>
+                  <p className="text-xs text-gray-500 mb-1">Date</p>
                   <p className="font-medium">
-                    {formatCurrency(viewDialog.expense.amount, viewDialog.expense.currency)}
+                    {viewDialog.expense.date ? format(new Date(viewDialog.expense.date), 'MMM d, yyyy') : '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Payment Method</p>
+                  <p className="text-xs text-gray-500 mb-1">Category</p>
+                  <CategoryBadge category={viewDialog.expense.category} label={getCategoryLabel(viewDialog.expense.category)} />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Amount</p>
+                  <p className="font-semibold text-lg text-indigo-600">
+                    {formatCurrency(viewDialog.expense.amount, viewDialog.expense.currency || baseCurrency)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Payment Method</p>
                   <p className="font-medium">{getPaymentMethodLabel(viewDialog.expense.paymentMethod)}</p>
                 </div>
+                {viewDialog.expense.taxAmount && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Tax Amount</p>
+                    <p className="font-medium">{formatCurrency(viewDialog.expense.taxAmount, viewDialog.expense.currency || baseCurrency)}</p>
+                  </div>
+                )}
+                {viewDialog.expense.reportId && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Report</p>
+                    <Link 
+                      to={createPageUrl(`TripReportDetails?id=${viewDialog.expense.reportId}`)}
+                      className="text-indigo-600 hover:underline font-medium"
+                    >
+                      {getReportTitle(viewDialog.expense.reportId)}
+                    </Link>
+                  </div>
+                )}
               </div>
+
               {viewDialog.expense.description && (
                 <div>
-                  <p className="text-sm text-gray-500">Description</p>
-                  <p className="font-medium">{viewDialog.expense.description}</p>
+                  <p className="text-xs text-gray-500 mb-1">Description</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{viewDialog.expense.description}</p>
                 </div>
               )}
-              {viewDialog.expense.receiptUrl && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Receipt</p>
-                  <img 
-                    src={viewDialog.expense.receiptUrl} 
-                    alt="Receipt" 
-                    className="max-h-64 rounded-lg border"
-                  />
-                </div>
-              )}
-              {viewDialog.expense.policyFlags?.length > 0 && (
-                <div className="p-3 bg-amber-50 rounded-lg">
-                  <p className="text-sm font-medium text-amber-800 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Policy Flags
-                  </p>
-                  <ul className="text-sm text-amber-700 mt-1 list-disc list-inside">
+
+              {viewDialog.expense.policyFlags && viewDialog.expense.policyFlags.length > 0 && (
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-xs text-amber-700 font-medium mb-1">Policy Warnings</p>
+                  <ul className="text-sm text-amber-600 list-disc list-inside">
                     {viewDialog.expense.policyFlags.map((flag, i) => (
                       <li key={i}>{flag}</li>
                     ))}
                   </ul>
                 </div>
               )}
+
+              {viewDialog.expense.reportId && viewDialog.expense.status === 'draft' && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs text-gray-500 mb-2">To edit or delete this expense, open it from the trip report:</p>
+                  <Link to={createPageUrl(`TripReportDetails?id=${viewDialog.expense.reportId}`)}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Open in Report
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" onClick={() => setViewDialog({ open: false, expense: null })}>
+                  Close
+                </Button>
+              </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Dialog */}
-      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, expense: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Expense</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this expense? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteDialog({ open: false, expense: null })}
-              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => deleteDialog.expense && deleteMutation.mutate(deleteDialog.expense)}
-              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cannot Delete Dialog */}
-      <Dialog open={cannotDeleteDialog} onOpenChange={setCannotDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cannot Delete Expense</DialogTitle>
-            <DialogDescription>
-              Submitted expenses cannot be deleted. Only draft expenses can be removed.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              onClick={() => setCannotDeleteDialog(false)}
-              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
-            >
-              OK
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
