@@ -38,6 +38,7 @@ export default function ExpenseFormModal({
   onClose, 
   reportId, 
   expense = null, // For editing
+  initialReceiptUrl = null, // Pre-uploaded receipt
   onSuccess 
 }) {
   const queryClient = useQueryClient();
@@ -101,17 +102,22 @@ export default function ExpenseFormModal({
           currency: 'USD',
           taxAmount: '',
           paymentMethod: 'card',
-          receiptUrl: '',
+          receiptUrl: initialReceiptUrl || '',
           exchangeRate: '',
         });
         setExtractedData(null);
+        
+        // Auto-process if there's an initial receipt URL
+        if (initialReceiptUrl) {
+          processReceiptOCR(initialReceiptUrl, false);
+        }
       }
       setErrors({});
       setOcrWarning(null);
       setOcrSuccess(null);
       setOcrConfidence(null);
     }
-  }, [open, expense]);
+  }, [open, expense, initialReceiptUrl]);
 
   // OCR Processing
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
