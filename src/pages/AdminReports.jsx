@@ -61,8 +61,11 @@ import { StatusBadge, CategoryBadge, AdminExportButtonGroup, PageHeader, EmptySt
 
 export default function AdminReports() {
   const queryClient = useQueryClient();
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialStatus = urlParams.get('status') || 'all';
+  
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [userFilter, setUserFilter] = useState('all');
   const [viewDialog, setViewDialog] = useState({ open: false, report: null });
   const [payDialog, setPayDialog] = useState({ open: false, report: null });
