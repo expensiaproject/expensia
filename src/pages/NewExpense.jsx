@@ -34,6 +34,10 @@ export default function NewExpense() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
+  // Check if we're adding expense to a specific report
+  const urlParams = new URLSearchParams(window.location.search);
+  const reportId = urlParams.get('reportId');
+  
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => base44.auth.me(),
@@ -42,6 +46,13 @@ export default function NewExpense() {
   const { data: policies = [] } = useQuery({
     queryKey: ['policies'],
     queryFn: () => base44.entities.Policy.list(),
+  });
+
+  const { data: linkedReport } = useQuery({
+    queryKey: ['report', reportId],
+    queryFn: () => base44.entities.Report.filter({ id: reportId }),
+    enabled: !!reportId,
+    select: (data) => data?.[0],
   });
 
   const [form, setForm] = useState({
@@ -388,12 +399,17 @@ Provide natural English translations:`,
   const createExpenseMutation = useMutation({
     mutationFn: async (expenseData) => {
       const result = await base44.entities.Expense.create(expenseData);
-      await logAuditEvent(user, 'expense', result.id, 'create', null, { status: 'draft' });
+      await logAuditEvent(user, 'expense', result.id, 'create', null, { status: expenseData.status });
       return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
-      navigate(createPageUrl('MyExpenses'));
+      if (reportId) {
+        queryClient.invalidateQueries({ queryKey: ['expenses', 'report', reportId] });
+        navigate(createPageUrl(`TripReportDetails?id=${reportId}`));
+      } else {
+        navigate(createPageUrl('MyExpenses'));
+      }
     },
   });
 
@@ -431,6 +447,7 @@ Provide natural English translations:`,
       policyFlags: warnings,
       status: submitExpense ? 'submitted' : 'draft',
       duplicateOf: duplicate?.id || null,
+      reportId: reportId || null,
     };
     
     createExpenseMutation.mutate(expenseData);
@@ -445,7 +462,9 @@ Provide natural English translations:`,
         </Button>
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">New Expense</h1>
-          <p className="text-sm text-gray-500">Add a new expense to your records</p>
+          <p className="text-sm text-gray-500">
+            {linkedReport ? `Adding to: ${linkedReport.title}` : 'Add a new expense to your records'}
+          </p>
         </div>
       </div>
 

@@ -39,8 +39,10 @@ export const prepareExpenseDataForExport = (expenses) => {
 export const prepareReportDataForExport = (reports) => {
   return reports.map(rep => ({
     'Title': rep.title || '',
-    'Period Start': formatDateForExport(rep.periodStart),
-    'Period End': formatDateForExport(rep.periodEnd),
+    'Trip Start': formatDateForExport(rep.tripStartDate),
+    'Trip End': formatDateForExport(rep.tripEndDate),
+    'Travelers': rep.travelerCount || 1,
+    'Destination': rep.destination || '',
     'Total Amount': rep.totalAmount || 0,
     'Status': rep.status || 'open',
     'Notes': rep.notes || '',
@@ -54,33 +56,27 @@ export const exportToExcel = (data, filename) => {
     return;
   }
   
-  // Create a simple HTML table that Excel can open
   const headers = Object.keys(data[0]);
-  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
-  html += '<head><meta charset="UTF-8"></head><body>';
-  html += '<table border="1">';
   
-  // Headers
-  html += '<tr>';
-  headers.forEach(h => {
-    html += `<th style="background-color:#4F46E5;color:white;font-weight:bold;padding:8px;">${h}</th>`;
-  });
-  html += '</tr>';
+  // Build CSV content with proper escaping
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
   
-  // Data rows
-  data.forEach((row, idx) => {
-    const bgColor = idx % 2 === 0 ? '#ffffff' : '#f3f4f6';
-    html += `<tr style="background-color:${bgColor}">`;
-    headers.forEach(h => {
-      html += `<td style="padding:6px;">${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`;
-    });
-    html += '</tr>';
+  let csv = '\uFEFF'; // BOM for Excel UTF-8 support
+  csv += headers.map(escapeCSV).join(',') + '\n';
+  
+  data.forEach(row => {
+    csv += headers.map(h => escapeCSV(row[h])).join(',') + '\n';
   });
   
-  html += '</table></body></html>';
-  
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  downloadBlob(blob, filename.replace('.xlsx', '.xls'));
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, filename.replace('.xlsx', '.csv'));
 };
 
 export const exportToPDF = (data, title, filename) => {
@@ -91,60 +87,56 @@ export const exportToPDF = (data, title, filename) => {
   
   const headers = Object.keys(data[0]);
   
-  // Create a printable HTML document
-  let html = `
+  // Create a printable HTML document that triggers print dialog for Save as PDF
+  const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
       <title>${title}</title>
       <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1f2937; }
-        h1 { color: #4F46E5; margin-bottom: 8px; font-size: 28px; }
-        .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
-        th { background-color: #4F46E5; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
-        td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1f2937; }
+        .header { margin-bottom: 20px; }
+        h1 { color: #4F46E5; font-size: 24px; margin-bottom: 4px; }
+        .subtitle { color: #6b7280; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
+        th { background-color: #4F46E5; color: white; padding: 8px 6px; text-align: left; font-weight: 600; }
+        td { padding: 6px; border-bottom: 1px solid #e5e7eb; }
         tr:nth-child(even) { background-color: #f9fafb; }
-        .footer { margin-top: 30px; font-size: 11px; color: #9ca3af; text-align: center; }
+        .footer { margin-top: 20px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+        @page { size: A4 landscape; margin: 15mm; }
         @media print {
-          body { padding: 20px; }
-          table { font-size: 9px; }
+          body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       </style>
     </head>
     <body>
-      <h1>Expensia</h1>
-      <div class="subtitle">${title} • Generated on ${format(new Date(), 'MMMM d, yyyy')}</div>
+      <div class="header">
+        <h1>Expensia</h1>
+        <div class="subtitle">${title} • Generated on ${format(new Date(), 'MMMM d, yyyy')}</div>
+      </div>
       <table>
-        <thead><tr>`;
-  
-  headers.forEach(h => {
-    html += `<th>${h}</th>`;
-  });
-  
-  html += '</tr></thead><tbody>';
-  
-  data.forEach(row => {
-    html += '<tr>';
-    headers.forEach(h => {
-      html += `<td>${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`;
-    });
-    html += '</tr>';
-  });
-  
-  html += `</tbody></table>
+        <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${data.map(row => `<tr>${headers.map(h => `<td>${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
       <div class="footer">This document was generated by Expensia Expense Management System</div>
-    </body></html>`;
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            window.onafterprint = function() { window.close(); };
+          }, 300);
+        };
+      </script>
+    </body>
+    </html>`;
   
-  // Open in new window for printing/saving as PDF
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-  }, 250);
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
 };
 
 const downloadBlob = (blob, filename) => {
