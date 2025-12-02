@@ -71,6 +71,7 @@ export default function MyExpenses() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteDialog, setDeleteDialog] = useState({ open: false, expense: null });
+  const [cannotDeleteDialog, setCannotDeleteDialog] = useState(false);
   const [viewDialog, setViewDialog] = useState({ open: false, expense: null });
 
   const { data: user } = useQuery({
@@ -87,12 +88,20 @@ export default function MyExpenses() {
   const baseCurrency = 'USD';
 
   const deleteMutation = useMutation({
-    mutationFn: async (expenseId) => {
-      await base44.entities.Expense.delete(expenseId);
-      await logAuditEvent(user, 'expense', expenseId, 'delete');
+    mutationFn: async (expense) => {
+      await base44.entities.Expense.delete(expense.id);
+      // If linked to a report, recalculate total
+      if (expense.reportId) {
+        const reportExpenses = await base44.entities.Expense.filter({ reportId: expense.reportId });
+        const remainingExpenses = reportExpenses.filter(e => e.id !== expense.id);
+        const newTotal = remainingExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+        await base44.entities.Report.update(expense.reportId, { totalAmount: newTotal });
+      }
+      await logAuditEvent(user, 'expense', expense.id, 'delete');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       setDeleteDialog({ open: false, expense: null });
     },
   });
@@ -255,28 +264,32 @@ export default function MyExpenses() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to={`${createPageUrl('EditExpense')}?id=${expense.id}`}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              {expense.status === 'draft' ? 'Edit' : 'View/Edit'}
+                            </Link>
+                          </DropdownMenuItem>
                           {expense.status === 'draft' && (
-                            <>
-                              <DropdownMenuItem asChild>
-                                <Link to={`${createPageUrl('EditExpense')}?id=${expense.id}`}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => submitMutation.mutate(expense)}>
-                                <Receipt className="h-4 w-4 mr-2" />
-                                Submit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600"
-                                onClick={() => setDeleteDialog({ open: true, expense })}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </>
+                            <DropdownMenuItem onClick={() => submitMutation.mutate(expense)}>
+                              <Receipt className="h-4 w-4 mr-2" />
+                              Submit
+                            </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => {
+                              if (expense.status === 'draft') {
+                                setDeleteDialog({ open: true, expense });
+                              } else {
+                                setCannotDeleteDialog(true);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -381,10 +394,30 @@ export default function MyExpenses() {
             </Button>
             <Button 
               variant="destructive" 
-              onClick={() => deleteDialog.expense && deleteMutation.mutate(deleteDialog.expense.id)}
+              onClick={() => deleteDialog.expense && deleteMutation.mutate(deleteDialog.expense)}
               className="w-full sm:w-[140px] h-10 rounded-md font-medium"
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cannot Delete Dialog */}
+      <Dialog open={cannotDeleteDialog} onOpenChange={setCannotDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cannot Delete Expense</DialogTitle>
+            <DialogDescription>
+              Submitted expenses cannot be deleted. Only draft expenses can be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              onClick={() => setCannotDeleteDialog(false)}
+              className="w-full sm:w-[140px] h-10 rounded-md font-medium"
+            >
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>
