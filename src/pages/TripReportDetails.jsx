@@ -30,6 +30,7 @@ export default function TripReportDetails() {
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
   const reportId = urlParams.get('id');
+  const pendingReceiptUrl = urlParams.get('receiptUrl');
 
   const [deleteExpenseId, setDeleteExpenseId] = useState(null);
   const [isEditingTrip, setIsEditingTrip] = useState(false);
@@ -68,6 +69,13 @@ export default function TripReportDetails() {
       });
     }
   }, [report]);
+
+  // Auto-open expense modal if there's a pending receipt URL
+  useEffect(() => {
+    if (pendingReceiptUrl && report) {
+      setExpenseModal({ open: true, expense: null, initialReceiptUrl: decodeURIComponent(pendingReceiptUrl) });
+    }
+  }, [pendingReceiptUrl, report]);
 
   // Calculate totals
   const totalAmount = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
@@ -478,7 +486,13 @@ export default function TripReportDetails() {
         onClose={() => setExpenseModal({ open: false, expense: null })}
         reportId={reportId}
         expense={expenseModal.expense}
-        onSuccess={() => {}}
+        initialReceiptUrl={expenseModal.initialReceiptUrl}
+        onSuccess={() => {
+          // Clear the receipt URL from the URL after processing
+          if (pendingReceiptUrl) {
+            window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
+          }
+        }}
       />
 
       {/* Expense View Modal */}
