@@ -345,13 +345,28 @@ Items: ${ocrResult.items_description || 'N/A'}`,
   const updateExpenseMutation = useMutation({
     mutationFn: async (expenseData) => {
       const result = await base44.entities.Expense.update(expenseId, expenseData);
+      // Recalculate linked report total if applicable
+      if (expense?.reportId) {
+        const reportExpenses = await base44.entities.Expense.filter({ reportId: expense.reportId });
+        const newTotal = reportExpenses.reduce((sum, e) => {
+          if (e.id === expenseId) return sum + (expenseData.amount || 0);
+          return sum + (e.amount || 0);
+        }, 0);
+        await base44.entities.Report.update(expense.reportId, { totalAmount: newTotal });
+      }
       await logAuditEvent(user, 'expense', expenseId, 'update', expenseData);
       return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
       queryClient.invalidateQueries({ queryKey: ['expense', expenseId] });
-      navigate(createPageUrl('MyExpenses'));
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      // Redirect to trip report if linked, else to MyExpenses
+      if (expense?.reportId) {
+        navigate(createPageUrl(`TripReportDetails?id=${expense.reportId}`));
+      } else {
+        navigate(createPageUrl('MyExpenses'));
+      }
     },
   });
 
@@ -399,13 +414,13 @@ Items: ${ocrResult.items_description || 'N/A'}`,
     );
   }
 
-  if (!expense || expense.status !== 'draft') {
+  if (!expense) {
     return (
       <div className="max-w-4xl mx-auto">
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {!expense ? 'Expense not found.' : 'Only draft expenses can be edited.'}
+            Expense not found.
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => navigate(-1)} className="mt-4">
@@ -416,6 +431,8 @@ Items: ${ocrResult.items_description || 'N/A'}`,
     );
   }
 
+  const isReadOnly = expense.status !== 'draft';
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
@@ -424,10 +441,23 @@ Items: ${ocrResult.items_description || 'N/A'}`,
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Edit Expense</h1>
-          <p className="text-gray-500">Update your expense details</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isReadOnly ? 'View Expense' : 'Edit Expense'}
+          </h1>
+          <p className="text-gray-500">
+            {isReadOnly ? 'This expense has been submitted and cannot be edited' : 'Update your expense details'}
+          </p>
         </div>
       </div>
+
+      {isReadOnly && (
+        <Alert className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            This expense is in "{expense.status}" status and cannot be edited.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
         {/* Receipt Upload */}
@@ -560,6 +590,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                   value={form.date}
                   onChange={(e) => setForm(f => ({ ...f, date: e.target.value }))}
                   className={errors.date ? 'border-red-500' : ''}
+                  disabled={isReadOnly}
                 />
               </div>
               <div>
@@ -569,6 +600,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                   value={form.merchant}
                   onChange={(e) => setForm(f => ({ ...f, merchant: e.target.value }))}
                   className={errors.merchant ? 'border-red-500' : ''}
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -576,7 +608,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="category">Category *</Label>
-                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))} disabled={isReadOnly}>
                   <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -591,7 +623,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
               </div>
               <div>
                 <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Select value={form.paymentMethod} onValueChange={(v) => setForm(f => ({ ...f, paymentMethod: v }))}>
+                <Select value={form.paymentMethod} onValueChange={(v) => setForm(f => ({ ...f, paymentMethod: v }))} disabled={isReadOnly}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -611,6 +643,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                 value={form.description}
                 onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                 rows={2}
+                disabled={isReadOnly}
               />
             </div>
           </CardContent>
@@ -632,11 +665,12 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                   value={form.amount}
                   onChange={(e) => setForm(f => ({ ...f, amount: e.target.value }))}
                   className={errors.amount ? 'border-red-500' : ''}
+                  disabled={isReadOnly}
                 />
               </div>
               <div>
                 <Label htmlFor="currency">Currency</Label>
-                <Select value={form.currency} onValueChange={(v) => setForm(f => ({ ...f, currency: v }))}>
+                <Select value={form.currency} onValueChange={(v) => setForm(f => ({ ...f, currency: v }))} disabled={isReadOnly}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -655,6 +689,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                   step="0.01"
                   value={form.taxAmount}
                   onChange={(e) => setForm(f => ({ ...f, taxAmount: e.target.value }))}
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -667,6 +702,7 @@ Items: ${ocrResult.items_description || 'N/A'}`,
                 placeholder="e.g., 1.35"
                 value={form.exchangeRate}
                 onChange={(e) => setForm(f => ({ ...f, exchangeRate: e.target.value }))}
+                disabled={isReadOnly}
               />
               <p className="text-xs text-gray-500 mt-1">Enter rate if different from default conversion</p>
             </div>
@@ -676,26 +712,30 @@ Items: ${ocrResult.items_description || 'N/A'}`,
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-end">
           <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-            Cancel
+            {isReadOnly ? 'Back' : 'Cancel'}
           </Button>
-          <Button 
-            type="submit" 
-            variant="outline"
-            disabled={updateExpenseMutation.isPending}
-          >
-            Save as Draft
-          </Button>
-          <Button 
-            type="button"
-            onClick={(e) => handleSubmit(e, true)}
-            className="bg-indigo-600 hover:bg-indigo-700"
-            disabled={updateExpenseMutation.isPending}
-          >
-            {updateExpenseMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
-            Save & Submit
-          </Button>
+          {!isReadOnly && (
+            <>
+              <Button 
+                type="submit" 
+                variant="outline"
+                disabled={updateExpenseMutation.isPending}
+              >
+                Save as Draft
+              </Button>
+              <Button 
+                type="button"
+                onClick={(e) => handleSubmit(e, true)}
+                className="bg-indigo-600 hover:bg-indigo-700"
+                disabled={updateExpenseMutation.isPending}
+              >
+                {updateExpenseMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Save & Submit
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </div>
