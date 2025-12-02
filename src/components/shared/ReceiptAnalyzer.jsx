@@ -8,6 +8,14 @@ import { base44 } from '@/api/base44Client';
  * @returns {Promise<Object>} Extracted receipt data
  */
 export async function analyzeReceipt(fileUrl) {
+  if (!fileUrl) {
+    return {
+      success: false,
+      error: "No file URL provided.",
+      data: null
+    };
+  }
+
   const isPdf = fileUrl.toLowerCase().includes('.pdf') || fileUrl.toLowerCase().includes('application/pdf');
   
   let ocrResult;
@@ -15,25 +23,21 @@ export async function analyzeReceipt(fileUrl) {
   try {
     // Step 1: Extract data from receipt using Vision AI
     ocrResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert receipt OCR system. Carefully analyze this ${isPdf ? 'PDF document' : 'image'} of a receipt.
+      prompt: `You are an expert receipt OCR system. Analyze this ${isPdf ? 'PDF document' : 'image'} carefully.
 
-The receipt may be in ANY language including English, Korean, Japanese, Chinese, Indonesian, Thai, Vietnamese, Malay, or any other language.
+This is a photo of a receipt/invoice. Extract ALL information you can see:
 
-Look at the image very carefully and EXTRACT ALL visible information:
+1. **merchant**: Store/business name (usually at top of receipt, in header or logo area)
+2. **date**: Transaction date in YYYY-MM-DD format (look for dates like 02/12/2025, Dec 2 2025, 2025-12-02, etc.)
+3. **total_amount**: Final total amount (number only, look for "Total", "TOTAL", "Amount", "Grand Total", or the largest number at bottom)
+4. **tax_amount**: Tax/VAT/GST if shown (number only, 0 if not visible)
+5. **currency**: Currency code (SGD for Singapore, USD, EUR, JPY, KRW, IDR, THB, MYR, etc.) - infer from location/symbols
+6. **items_description**: What was purchased (brief list of items)
+7. **category**: One of: entertainment_hospitality (food/restaurants), local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
+8. **detected_language**: Language code (en, zh, ja, ko, id, th, ms, vi)
+9. **confidence_score**: Your confidence 0-100
 
-1. **merchant**: The store/vendor/business name - look at the top of the receipt for the company name, logo text, or header
-2. **date**: Transaction date - look for date formats like DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, or written dates. Convert to YYYY-MM-DD format.
-3. **total_amount**: The FINAL TOTAL amount paid (number only, no currency symbols)
-   - Look for keywords: "Total", "Grand Total", "Amount Due", "TOTAL", "Subtotal", "合計", "총액", "Jumlah", "รวม", "Tổng", "Amt", etc.
-   - Usually the largest/bold number at the bottom
-4. **tax_amount**: Tax/VAT/GST amount if shown (number only, can be 0 if not visible)
-5. **currency**: Currency code based on receipt origin or currency symbols (USD, EUR, JPY, CNY, KRW, SGD, IDR, THB, VND, MYR, TWD, HKD, GBP, AUD, etc.)
-6. **items_description**: Brief summary of what was purchased (list main items)
-7. **category**: Best match from: air_tickets, local_transport, overseas_transport, trip_insurance, communication, entertainment_hospitality, equipment_tools, gifts_souvenirs, other_business, miscellaneous
-8. **detected_language**: ISO language code (en, ko, ja, zh, id, th, vi, ms, etc.)
-9. **confidence_score**: Your confidence in the extraction (0-100)
-
-IMPORTANT: Even if the image is blurry or partially visible, try your best to extract whatever you can see. Return your best guess for each field.`,
+CRITICAL: Even for blurry/unclear images, provide your BEST GUESS for each field. Do not leave fields empty - use reasonable estimates based on what you can see.`,
       file_urls: fileUrl,
       response_json_schema: {
         type: 'object',
@@ -51,6 +55,8 @@ IMPORTANT: Even if the image is blurry or partially visible, try your best to ex
         }
       }
     });
+    
+    console.log('Raw OCR result:', ocrResult);
   } catch (error) {
     console.error('OCR API call failed:', error);
     return {
@@ -60,15 +66,27 @@ IMPORTANT: Even if the image is blurry or partially visible, try your best to ex
     };
   }
 
-  // Check if we got any core data - be more lenient
-  const hasDate = ocrResult?.date && ocrResult.date.length > 0 && ocrResult.date !== 'null';
-  const hasMerchant = ocrResult?.merchant && ocrResult.merchant.length > 0 && ocrResult.merchant !== 'null';
-  const hasAmount = ocrResult?.total_amount !== null && ocrResult?.total_amount !== undefined && ocrResult.total_amount >= 0;
-  const hasCurrency = ocrResult?.currency && ocrResult.currency.length > 0;
-  const hasDescription = ocrResult?.items_description && ocrResult.items_description.length > 0;
+  // If ocrResult is null/undefined, fail
+  if (!ocrResult) {
+    return {
+      success: false,
+      error: "Couldn't read this receipt. Please fill in manually.",
+      data: null
+    };
+  }
+
+  // Check if we got any core data - be very lenient
+  const hasDate = ocrResult.date && ocrResult.date.length > 0 && ocrResult.date !== 'null' && ocrResult.date !== 'N/A';
+  const hasMerchant = ocrResult.merchant && ocrResult.merchant.length > 0 && ocrResult.merchant !== 'null' && ocrResult.merchant !== 'N/A';
+  const hasAmount = ocrResult.total_amount !== null && ocrResult.total_amount !== undefined && !isNaN(ocrResult.total_amount);
+  const hasCurrency = ocrResult.currency && ocrResult.currency.length > 0 && ocrResult.currency !== 'null';
+  const hasDescription = ocrResult.items_description && ocrResult.items_description.length > 0;
+  const hasCategory = ocrResult.category && ocrResult.category.length > 0;
   
   // Success if ANY useful data was extracted
-  if (!hasDate && !hasMerchant && !hasAmount && !hasCurrency && !hasDescription) {
+  const hasAnyData = hasDate || hasMerchant || hasAmount || hasCurrency || hasDescription || hasCategory;
+  
+  if (!hasAnyData) {
     return {
       success: false,
       error: "Couldn't read this receipt. Please fill in manually.",
