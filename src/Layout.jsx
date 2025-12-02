@@ -8,7 +8,6 @@ import {
   Receipt,
   FileText,
   Users,
-  Settings,
   Shield,
   History,
   LogOut,
