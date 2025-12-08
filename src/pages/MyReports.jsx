@@ -282,22 +282,25 @@ export default function MyReports() {
                               <FileText className="h-4 w-4 mr-2" />
                               Download PDF
                             </DropdownMenuItem>
-                            {report.status === 'open' && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => submitMutation.mutate(report)}>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Submit Report
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  className="text-red-600"
-                                  onClick={() => setDeleteDialog({ open: true, report })}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </>
-                            )}
+                            <>
+                              {report.status === 'open' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => submitMutation.mutate(report)}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Submit Report
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600"
+                                onClick={() => setDeleteDialog({ open: true, report })}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
