@@ -17,6 +17,7 @@ export async function analyzeReceipt(fileUrl) {
   }
 
   const isPdf = fileUrl.toLowerCase().includes('.pdf') || fileUrl.toLowerCase().includes('application/pdf');
+  console.log('File type detected:', isPdf ? 'PDF' : 'Image');
   
   let ocrResult;
   
