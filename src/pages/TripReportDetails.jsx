@@ -421,7 +421,7 @@ export default function TripReportDetails() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {isEditable && expense.status === 'draft' && (
+                          {isEditable && (
                             <>
                               <Button 
                                 variant="ghost" 
