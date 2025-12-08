@@ -24,31 +24,51 @@ export async function analyzeReceipt(fileUrl) {
   try {
     // Step 1: Extract data from receipt using Vision AI with enhanced PDF handling
     const prompt = isPdf 
-      ? `Extract data from this PDF receipt:
+      ? `You are reading a PDF receipt document. Read ALL text from the PDF and extract the following information:
 
-    - merchant: Business name (required - guess if needed)
-    - date: Transaction date as YYYY-MM-DD
-    - total_amount: Final amount (just the number, required)
-    - currency: USD, EUR, SGD, etc (required - infer from context)
-    - tax_amount: Tax if shown, else 0
-    - items_description: Brief items summary
-    - category: Choose from: meals, entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
-    - detected_language: Language code (en, zh, ja, ko, etc)
+**Required fields (MUST provide):**
+1. merchant: The business/store/company name (look at the top of the document - this is the most prominent text)
+2. total_amount: The final total amount as a NUMBER ONLY (look for "Total", "Amount Due", "Grand Total", "Balance", "Net Amount" - extract just the number, like 25.50, not "$25.50")
+3. currency: The currency code like USD, SGD, EUR, GBP, JPY, etc. (infer from $ signs, country, or text in the document)
 
-    CRITICAL: Always fill merchant, total_amount, and currency even if you must guess.`
-      : `Extract receipt data:
+**Optional fields:**
+4. date: Transaction date in YYYY-MM-DD format (today is ${new Date().toISOString().split('T')[0]} for reference)
+5. tax_amount: Tax/GST/VAT amount as number only (or 0 if not shown)
+6. items_description: Brief summary of items/services purchased
+7. category: Best match from: meals, entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
+8. detected_language: Language code (en, zh, ja, ko, id, th, etc.)
+9. confidence_score: Your confidence 0-100
+10. raw_ocr_text: All text you can see in the PDF
 
-    - merchant: Store/business name
-    - date: YYYY-MM-DD format
-    - total_amount: Number only
-    - currency: 3-letter code
-    - tax_amount: Number or 0
-    - items_description: What was purchased
-    - category: meals, entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, or miscellaneous
-    - detected_language: en, zh, ja, ko, etc
+**CRITICAL INSTRUCTIONS:**
+- This is a PDF file - read the text content carefully
+- ALWAYS provide merchant, total_amount, and currency - never leave these empty
+- If unclear, make your best educated guess based on context
+- For amounts, extract only numbers (25.50 not $25.50 or USD 25.50)
+- Return actual values, never "Unknown", "N/A", "null", or empty strings`
+      : `You are reading a receipt image. Extract the following:
 
-    CRITICAL: Always provide merchant, total_amount, and currency.`;
+**Required (MUST provide):**
+1. merchant: Store/business name
+2. total_amount: Final total as number only
+3. currency: USD, EUR, SGD, etc.
 
+**Optional:**
+4. date: YYYY-MM-DD
+5. tax_amount: Number or 0
+6. items_description: What was purchased
+7. category: meals, entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, or miscellaneous
+8. detected_language: en, zh, ja, ko, etc.
+9. confidence_score: 0-100
+10. raw_ocr_text: All visible text
+
+**CRITICAL:**
+- Always provide merchant, total_amount, and currency
+- Extract numbers only for amounts
+- Never return "Unknown" or empty values for required fields`;
+
+    console.log('Sending OCR request for', isPdf ? 'PDF' : 'image', 'file...');
+    
     ocrResult = await base44.integrations.Core.InvokeLLM({
       prompt: prompt,
       file_urls: fileUrl,
@@ -69,42 +89,53 @@ export async function analyzeReceipt(fileUrl) {
       }
     });
     
-    console.log('Raw OCR result:', ocrResult);
+    console.log('✅ OCR Response received:', JSON.stringify(ocrResult, null, 2));
+  } catch (error) {
+    console.error('❌ OCR API call failed:', error);
+    return {
+      success: false,
+      error: "Failed to process receipt. Please try again or fill in manually.",
+      data: null
+    };
+  }
 
-    // If we got ANY data at all, let's try to use it - be VERY lenient
-    if (ocrResult && typeof ocrResult === 'object') {
-      console.log('OCR succeeded, processing data...');
-    } else {
-      console.error('OCR returned invalid data:', ocrResult);
-      return {
-        success: false,
-        error: "Couldn't read this receipt. Please fill in manually.",
-        data: null
-      };
-    }
-    } catch (error) {
-    console.error('OCR API call failed:', error);
+  // Validate we got a valid response object
+  if (!ocrResult || typeof ocrResult !== 'object') {
+    console.error('❌ Invalid OCR response:', ocrResult);
     return {
       success: false,
       error: "Couldn't read this receipt. Please fill in manually.",
       data: null
     };
-    }
+  }
 
-    // Be EXTREMELY lenient - if we have ANY field with data, proceed
-    const hasMerchant = ocrResult.merchant && String(ocrResult.merchant).trim().length > 0;
-    const hasAmount = ocrResult.total_amount && !isNaN(ocrResult.total_amount) && ocrResult.total_amount > 0;
-    const hasDate = ocrResult.date && String(ocrResult.date).trim().length > 0;
+  // Check what data we got - be VERY lenient
+  const hasMerchant = ocrResult.merchant && 
+    String(ocrResult.merchant).trim().length > 0 && 
+    !['unknown', 'n/a', 'null', 'undefined', 'none', ''].includes(String(ocrResult.merchant).toLowerCase().trim());
+  
+  const hasAmount = ocrResult.total_amount !== null && 
+    ocrResult.total_amount !== undefined && 
+    !isNaN(ocrResult.total_amount) && 
+    ocrResult.total_amount > 0;
+  
+  const hasDate = ocrResult.date && 
+    String(ocrResult.date).trim().length > 0 &&
+    !['unknown', 'n/a', 'null', 'undefined', 'none', ''].includes(String(ocrResult.date).toLowerCase().trim());
 
-    // If we don't have at least one of merchant, amount, or date, it's a failure
-    if (!hasMerchant && !hasAmount && !hasDate) {
-    console.error('No useful data extracted from receipt');
+  console.log('Data validation:', { hasMerchant, hasAmount, hasDate });
+
+  // Success if we have at least one piece of useful data
+  if (!hasMerchant && !hasAmount && !hasDate) {
+    console.error('❌ No useful data extracted from receipt');
     return {
       success: false,
-      error: "Couldn't read this receipt. Please fill in manually.",
+      error: "Couldn't extract data from this receipt. Please fill in manually.",
       data: null
     };
-    }
+  }
+
+  console.log('✅ OCR successful, extracted data is usable');
 
   // Step 2: Translate if not English
   let translatedMerchant = ocrResult.merchant || '';
