@@ -18,17 +18,17 @@ export async function analyzeReceipt(fileUrl) {
 
   const isPdf = fileUrl.toLowerCase().includes('.pdf') || fileUrl.toLowerCase().includes('application/pdf');
   console.log('File type detected:', isPdf ? 'PDF' : 'Image');
-  
+
   let ocrResult;
-  
+
   try {
     // Step 1: Extract data from receipt using Vision AI
     ocrResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert receipt and invoice OCR system. Carefully analyze this ${isPdf ? 'PDF receipt document' : 'receipt image'}.
+      prompt: `You are an expert receipt and invoice OCR system. You have been given a ${isPdf ? 'PDF receipt/invoice document' : 'receipt image'} to analyze.
 
-${isPdf ? 'NOTE: This is a PDF file. Read all pages if multi-page. Extract text and numbers from the document.' : 'NOTE: This is an image file. Analyze all visible text and numbers.'}
+  ${isPdf ? 'CRITICAL PDF INSTRUCTIONS:\n- This is a PDF file. Read ALL text content from ALL pages.\n- Extract every visible number, date, merchant name, and amount.\n- PDFs contain embedded text - read it carefully.\n- Look for total amounts, dates, merchant/store names, tax amounts, and item descriptions.' : 'IMAGE INSTRUCTIONS:\n- This is an image file. Read all visible text and numbers.\n- Look at the entire image carefully.'}
 
-IMPORTANT: Extract ALL visible information from this receipt/invoice/bill:
+  YOUR TASK - Extract ALL of the following information from this ${isPdf ? 'PDF document' : 'image'}:
 
 1. **merchant**: The store, restaurant, company, or business name (usually prominent at the top)
 2. **date**: Transaction date - convert to YYYY-MM-DD format. Today is 2025-12-02 for reference.
@@ -40,11 +40,15 @@ IMPORTANT: Extract ALL visible information from this receipt/invoice/bill:
 8. **detected_language**: Primary language (en, zh, ja, ko, id, th, ms, vi, etc.)
 9. **confidence_score**: Your confidence level 0-100
 
-CRITICAL INSTRUCTIONS:
-- ALWAYS provide values for merchant, total_amount, and currency - make your best guess
-- If text is blurry or unclear, still provide your best interpretation
+CRITICAL INSTRUCTIONS FOR ${isPdf ? 'PDF' : 'IMAGE'} PROCESSING:
+- ${isPdf ? 'Read the PDF text content thoroughly - PDFs contain embedded text that can be extracted' : 'Analyze all visible text in the image'}
+- ALWAYS provide values for merchant, total_amount, and currency - make your best guess if unclear
+- If text is unclear, still provide your best interpretation based on context
 - For amounts, extract just the number (e.g., 25.50 not $25.50)
-- Never return null or empty strings - always guess based on context`,
+- Never return null or empty strings - always guess based on context
+- ${isPdf ? 'For PDFs: Look for "Total", "Amount Due", "Grand Total" - these are usually the final amount' : 'For images: Find the largest/final amount which is usually the total'}
+- Pay special attention to the merchant/business name (usually at the top)
+- Date format should be YYYY-MM-DD`,
       file_urls: fileUrl,
       response_json_schema: {
         type: 'object',
