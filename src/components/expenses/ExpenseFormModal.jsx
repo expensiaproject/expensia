@@ -218,9 +218,11 @@ export default function ExpenseFormModal({
     
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
-      setErrors(err => ({ ...err, receipt: 'Please upload a JPG, PNG, or PDF file' }));
+      setErrors(err => ({ ...err, receipt: 'Please upload a JPG, PNG, or PDF receipt' }));
       return;
     }
+
+    console.log('Uploading receipt:', file.type, file.name);
     
     setIsUploading(true);
     setOcrWarning(null);
@@ -346,9 +348,17 @@ export default function ExpenseFormModal({
                   <span className="text-sm font-medium">Receipt uploaded</span>
                 </div>
                 {form.receiptUrl.toLowerCase().includes('.pdf') ? (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <Receipt className="h-8 w-8 text-gray-400 mx-auto" />
-                    <p className="text-sm text-gray-500 mt-1">PDF Receipt</p>
+                  <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <Receipt className="h-10 w-10 text-indigo-600 mx-auto" />
+                    <p className="text-sm text-indigo-700 font-medium mt-2">PDF Receipt</p>
+                    <a 
+                      href={form.receiptUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-indigo-600 hover:underline mt-1 inline-block"
+                    >
+                      View PDF
+                    </a>
                   </div>
                 ) : (
                   <img src={form.receiptUrl} alt="Receipt" className="max-h-32 mx-auto rounded-lg" />
@@ -407,13 +417,13 @@ export default function ExpenseFormModal({
                 {isUploading || isExtracting ? (
                   <div className="flex flex-col items-center gap-1">
                     <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
-                    <span className="text-sm text-gray-600">{isExtracting ? 'Reading receipt…' : 'Uploading...'}</span>
+                    <span className="text-sm text-gray-600">{isExtracting ? 'Reading receipt with AI…' : 'Uploading...'}</span>
                   </div>
                 ) : (
                   <>
                     <Upload className="h-8 w-8 text-gray-400 mx-auto mb-1" />
                     <p className="text-sm text-gray-600 font-medium">Click to upload receipt</p>
-                    <p className="text-xs text-gray-400">AI will extract details automatically</p>
+                    <p className="text-xs text-gray-400">JPG, PNG, or PDF • AI will extract details</p>
                   </>
                 )}
               </label>

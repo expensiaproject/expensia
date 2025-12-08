@@ -23,9 +23,11 @@ export async function analyzeReceipt(fileUrl) {
   try {
     // Step 1: Extract data from receipt using Vision AI
     ocrResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert receipt and invoice OCR system. Carefully analyze this ${isPdf ? 'PDF document' : 'image'} of a receipt, invoice, or bill.
+      prompt: `You are an expert receipt and invoice OCR system. Carefully analyze this ${isPdf ? 'PDF receipt document' : 'receipt image'}.
 
-IMPORTANT: This is definitely a receipt/invoice image. Extract ALL visible information:
+${isPdf ? 'NOTE: This is a PDF file. Read all pages if multi-page. Extract text and numbers from the document.' : 'NOTE: This is an image file. Analyze all visible text and numbers.'}
+
+IMPORTANT: Extract ALL visible information from this receipt/invoice/bill:
 
 1. **merchant**: The store, restaurant, company, or business name (usually prominent at the top)
 2. **date**: Transaction date - convert to YYYY-MM-DD format. Today is 2025-12-02 for reference.
