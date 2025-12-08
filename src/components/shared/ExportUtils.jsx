@@ -28,6 +28,8 @@ export const prepareExpenseDataForExport = (expenses) => {
     'Description': exp.description || '',
     'Amount': exp.amount || 0,
     'Currency': exp.currency || 'USD',
+    'FX Rate': exp.fxRateAtUpload ? exp.fxRateAtUpload.toFixed(6) : '-',
+    'Base Amount (USD)': exp.baseAmount ? exp.baseAmount.toFixed(2) : (exp.amount || 0),
     'Tax Amount': exp.taxAmount || '',
     'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
     'Status': exp.status || 'draft',
