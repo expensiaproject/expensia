@@ -22,33 +22,43 @@ export async function analyzeReceipt(fileUrl) {
   let ocrResult;
 
   try {
-    // Step 1: Extract data from receipt using Vision AI
+    // Step 1: Extract data from receipt using Vision AI with enhanced PDF handling
+    const prompt = isPdf 
+      ? `You are analyzing a PDF receipt/invoice. PDFs contain structured text that you can read.
+
+  READ THE ENTIRE PDF DOCUMENT and extract:
+
+  1. Merchant/Business Name (usually at top of document)
+  2. Transaction Date (convert to YYYY-MM-DD, today is ${new Date().toISOString().split('T')[0]})
+  3. Total Amount (look for "Total:", "Amount:", "Grand Total:", "Balance Due:" - just the number)
+  4. Tax/VAT (if shown, otherwise 0)
+  5. Currency (USD, EUR, SGD, etc. - infer from document)
+  6. Items purchased (brief summary)
+  7. Category: entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, meals, miscellaneous
+
+  IMPORTANT FOR PDF FILES:
+  - Read all text carefully from the PDF
+  - Look for the final/total amount (not subtotals)
+  - Merchant name is usually the largest text at the top
+  - ALWAYS return values - never leave merchant, total_amount, or currency empty
+  - Make best guesses based on context if something is unclear
+  - Extract numbers only for amounts (25.50 not $25.50)`
+      : `You are analyzing a receipt image. 
+
+  Extract ALL information:
+  1. Merchant name
+  2. Date (YYYY-MM-DD)
+  3. Total amount (number only)
+  4. Tax amount
+  5. Currency
+  6. Items description
+  7. Category
+  8. Language
+
+  ALWAYS provide merchant, total_amount, and currency - make educated guesses if needed.`;
+
     ocrResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert receipt and invoice OCR system. You have been given a ${isPdf ? 'PDF receipt/invoice document' : 'receipt image'} to analyze.
-
-  ${isPdf ? 'CRITICAL PDF INSTRUCTIONS:\n- This is a PDF file. Read ALL text content from ALL pages.\n- Extract every visible number, date, merchant name, and amount.\n- PDFs contain embedded text - read it carefully.\n- Look for total amounts, dates, merchant/store names, tax amounts, and item descriptions.' : 'IMAGE INSTRUCTIONS:\n- This is an image file. Read all visible text and numbers.\n- Look at the entire image carefully.'}
-
-  YOUR TASK - Extract ALL of the following information from this ${isPdf ? 'PDF document' : 'image'}:
-
-1. **merchant**: The store, restaurant, company, or business name (usually prominent at the top)
-2. **date**: Transaction date - convert to YYYY-MM-DD format. Today is 2025-12-02 for reference.
-3. **total_amount**: The final total/amount paid (just the number, no currency symbol). Look for "Total", "Grand Total", "Amount Due", or the final/largest amount.
-4. **tax_amount**: Tax/VAT/GST amount if shown (number only), use 0 if not visible
-5. **currency**: 3-letter currency code (USD, SGD, EUR, JPY, KRW, CNY, THB, MYR, IDR, PHP, VND, TWD, HKD, AUD, GBP, etc.) - infer from country/symbols/text
-6. **items_description**: Brief description of what was purchased
-7. **category**: Classify as one of: entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, meals, miscellaneous
-8. **detected_language**: Primary language (en, zh, ja, ko, id, th, ms, vi, etc.)
-9. **confidence_score**: Your confidence level 0-100
-
-CRITICAL INSTRUCTIONS FOR ${isPdf ? 'PDF' : 'IMAGE'} PROCESSING:
-- ${isPdf ? 'Read the PDF text content thoroughly - PDFs contain embedded text that can be extracted' : 'Analyze all visible text in the image'}
-- ALWAYS provide values for merchant, total_amount, and currency - make your best guess if unclear
-- If text is unclear, still provide your best interpretation based on context
-- For amounts, extract just the number (e.g., 25.50 not $25.50)
-- Never return null or empty strings - always guess based on context
-- ${isPdf ? 'For PDFs: Look for "Total", "Amount Due", "Grand Total" - these are usually the final amount' : 'For images: Find the largest/final amount which is usually the total'}
-- Pay special attention to the merchant/business name (usually at the top)
-- Date format should be YYYY-MM-DD`,
+      prompt: prompt,
       file_urls: fileUrl,
       response_json_schema: {
         type: 'object',
