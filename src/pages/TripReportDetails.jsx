@@ -20,7 +20,7 @@ import {
   Plane, Calendar, Users, MapPin, Plus, Pencil, Trash2, Send, Save, ArrowLeft, 
   Receipt, Eye, RotateCcw, X
 } from 'lucide-react';
-import { getCategoryLabel, formatCurrency } from '@/components/shared/CategoryHelpers';
+import { getCategoryLabel, formatCurrency, calculateTotalBaseAmount } from '@/components/shared/CategoryHelpers';
 import { StatusBadge } from '@/components/shared/UIHelpers';
 import ExpenseFormModal from '@/components/expenses/ExpenseFormModal';
 import ExpenseViewModal from '@/components/expenses/ExpenseViewModal';
@@ -79,8 +79,8 @@ export default function TripReportDetails() {
     }
   }, [report, currentReceiptIndex]);
 
-  // Calculate totals
-  const totalAmount = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+  // Calculate totals using baseAmount (USD)
+  const totalAmount = calculateTotalBaseAmount(expenses);
   const perTraveler = report?.travelerCount > 1 ? totalAmount / report.travelerCount : null;
 
   const updateReportMutation = useMutation({
@@ -393,6 +393,7 @@ export default function TripReportDetails() {
                     <TableHead>Merchant</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">USD</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -405,6 +406,9 @@ export default function TripReportDetails() {
                       <TableCell>{getCategoryLabel(expense.category)}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(expense.amount, expense.currency || 'USD')}
+                      </TableCell>
+                      <TableCell className="text-right text-gray-600">
+                        {expense.baseAmount ? formatCurrency(expense.baseAmount, 'USD') : formatCurrency(expense.amount, 'USD')}
                       </TableCell>
                       <TableCell><StatusBadge status={expense.status} /></TableCell>
                       <TableCell className="text-right">
