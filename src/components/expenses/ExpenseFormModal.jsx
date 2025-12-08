@@ -33,6 +33,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CATEGORIES, PAYMENT_METHODS, CURRENCIES, getCategoryLabel } from '@/components/shared/CategoryHelpers';
 import { logAuditEvent } from '@/components/shared/AuditLogger';
 import { analyzeReceipt } from '@/components/shared/ReceiptAnalyzer';
+import { fetchFXRate, calculateBaseAmount } from '@/components/shared/FXRateService';
 
 export default function ExpenseFormModal({ 
   open, 
@@ -62,14 +63,18 @@ export default function ExpenseFormModal({
     description: '',
     amount: '',
     currency: 'USD',
+    baseCurrency: 'USD',
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
     exchangeRate: '',
+    fxRateAtUpload: null,
+    baseAmount: null,
   });
 
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isFetchingFX, setIsFetchingFX] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [ocrConfidence, setOcrConfidence] = useState(null);
   const [ocrWarning, setOcrWarning] = useState(null);
@@ -90,10 +95,13 @@ export default function ExpenseFormModal({
           description: expense.description || '',
           amount: expense.amount?.toString() || '',
           currency: expense.currency || 'USD',
+          baseCurrency: expense.baseCurrency || 'USD',
           taxAmount: expense.taxAmount?.toString() || '',
           paymentMethod: expense.paymentMethod || 'card',
           receiptUrl: expense.receiptUrl || '',
           exchangeRate: expense.exchangeRate?.toString() || '',
+          fxRateAtUpload: expense.fxRateAtUpload || null,
+          baseAmount: expense.baseAmount || null,
         });
         setExtractedData(expense.extractedFieldsOriginal ? { extractedFieldsOriginal: expense.extractedFieldsOriginal } : null);
         setOcrTriggeredFor(null);
@@ -105,10 +113,13 @@ export default function ExpenseFormModal({
           description: '',
           amount: '',
           currency: 'USD',
+          baseCurrency: 'USD',
           taxAmount: '',
           paymentMethod: 'card',
           receiptUrl: initialReceiptUrl || '',
           exchangeRate: '',
+          fxRateAtUpload: null,
+          baseAmount: null,
         });
         setExtractedData(null);
         setOcrTriggeredFor(null);
@@ -127,6 +138,58 @@ export default function ExpenseFormModal({
       processReceiptOCR(initialReceiptUrl, false);
     }
   }, [open, initialReceiptUrl, expense, ocrTriggeredFor]);
+
+  // Fetch FX rate when currency or date changes
+  useEffect(() => {
+    const fetchFX = async () => {
+      if (!form.currency || !form.date || form.currency === form.baseCurrency) {
+        // Same currency, rate is 1
+        if (form.currency === form.baseCurrency && form.amount) {
+          setForm(f => ({
+            ...f,
+            fxRateAtUpload: 1,
+            baseAmount: parseFloat(f.amount) || 0
+          }));
+        }
+        return;
+      }
+
+      // For card: auto-fetch FX unless manually overridden
+      // For cash: also auto-fetch but allow manual override
+      if (!form.fxRateAtUpload || form.paymentMethod === 'card') {
+        setIsFetchingFX(true);
+        try {
+          const rate = await fetchFXRate(form.currency, form.baseCurrency, form.date);
+          const amount = parseFloat(form.amount) || 0;
+          const baseAmt = calculateBaseAmount(amount, rate);
+          
+          setForm(f => ({
+            ...f,
+            fxRateAtUpload: rate,
+            baseAmount: baseAmt
+          }));
+        } catch (error) {
+          console.error('Failed to fetch FX rate:', error);
+        } finally {
+          setIsFetchingFX(false);
+        }
+      }
+    };
+
+    // Only fetch if we have currency, date, and amount
+    if (form.currency && form.date && form.amount) {
+      fetchFX();
+    }
+  }, [form.currency, form.date, form.amount, form.baseCurrency, form.paymentMethod]);
+
+  // Recalculate baseAmount when amount or fxRateAtUpload changes
+  useEffect(() => {
+    if (form.amount && form.fxRateAtUpload) {
+      const amount = parseFloat(form.amount) || 0;
+      const baseAmt = calculateBaseAmount(amount, form.fxRateAtUpload);
+      setForm(f => ({ ...f, baseAmount: baseAmt }));
+    }
+  }, [form.amount, form.fxRateAtUpload]);
 
   // OCR Processing using shared analyzeReceipt AI action
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
@@ -308,6 +371,9 @@ export default function ExpenseFormModal({
       description: form.description,
       amount: parseFloat(form.amount) || 0,
       currency: form.currency,
+      baseCurrency: form.baseCurrency,
+      fxRateAtUpload: form.fxRateAtUpload,
+      baseAmount: form.baseAmount,
       exchangeRate: form.exchangeRate ? parseFloat(form.exchangeRate) : null,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
@@ -519,17 +585,51 @@ export default function ExpenseFormModal({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Exchange Rate (Optional)</Label>
-            <Input
-              type="number"
-              step="0.0001"
-              placeholder="e.g., 1.35"
-              value={form.exchangeRate}
-              onChange={(e) => setForm(f => ({ ...f, exchangeRate: e.target.value }))}
-              className="h-9"
-            />
-          </div>
+          {/* FX Rate Section */}
+          {form.currency !== form.baseCurrency && (
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Currency Conversion</Label>
+                {isFetchingFX && (
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Fetching rate...
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">FX Rate (1 {form.currency} = X {form.baseCurrency})</Label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    placeholder="Auto-fetched"
+                    value={form.fxRateAtUpload || ''}
+                    onChange={(e) => {
+                      const rate = parseFloat(e.target.value) || null;
+                      const baseAmt = rate ? calculateBaseAmount(parseFloat(form.amount) || 0, rate) : null;
+                      setForm(f => ({ ...f, fxRateAtUpload: rate, baseAmount: baseAmt }));
+                    }}
+                    className="h-9"
+                    disabled={form.paymentMethod === 'card' && isFetchingFX}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {form.paymentMethod === 'card' ? 'Auto-fetched (editable)' : 'Manual entry allowed'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Converted Amount ({form.baseCurrency})</Label>
+                  <Input
+                    type="text"
+                    value={form.baseAmount ? form.baseAmount.toFixed(2) : ''}
+                    readOnly
+                    className="h-9 bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500">Calculated automatically</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label className="text-xs">Description (Optional)</Label>
