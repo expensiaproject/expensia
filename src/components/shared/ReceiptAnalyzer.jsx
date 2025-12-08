@@ -36,7 +36,7 @@ IMPORTANT: Extract ALL visible information from this receipt/invoice/bill:
 4. **tax_amount**: Tax/VAT/GST amount if shown (number only), use 0 if not visible
 5. **currency**: 3-letter currency code (USD, SGD, EUR, JPY, KRW, CNY, THB, MYR, IDR, PHP, VND, TWD, HKD, AUD, GBP, etc.) - infer from country/symbols/text
 6. **items_description**: Brief description of what was purchased
-7. **category**: Classify as one of: entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, miscellaneous
+7. **category**: Classify as one of: entertainment_hospitality, local_transport, air_tickets, equipment_tools, gifts_souvenirs, communication, meals, miscellaneous
 8. **detected_language**: Primary language (en, zh, ja, ko, id, th, ms, vi, etc.)
 9. **confidence_score**: Your confidence level 0-100
 
