@@ -70,3 +70,13 @@ export const formatCurrency = (amount, currency = 'USD') => {
     return `${currency} ${Number(amount).toFixed(2)}`;
   }
 };
+
+export const calculateTotalBaseAmount = (expenses) => {
+  return expenses.reduce((sum, exp) => {
+    // Use baseAmount if available, otherwise fallback to amount (for USD expenses)
+    const amount = exp.baseAmount !== null && exp.baseAmount !== undefined 
+      ? exp.baseAmount 
+      : (exp.currency === 'USD' ? exp.amount : 0);
+    return sum + (amount || 0);
+  }, 0);
+};
