@@ -10,7 +10,10 @@ import {
   Receipt,
   Sparkles,
   RotateCcw,
-  X
+  X,
+  Image as ImageIcon,
+  Camera,
+  FolderOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +32,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CATEGORIES, PAYMENT_METHODS, CURRENCIES, getCategoryLabel } from '@/components/shared/CategoryHelpers';
 import { logAuditEvent } from '@/components/shared/AuditLogger';
@@ -80,6 +88,7 @@ export default function ExpenseFormModal({
   const [ocrWarning, setOcrWarning] = useState(null);
   const [ocrSuccess, setOcrSuccess] = useState(null);
   const [errors, setErrors] = useState({});
+  const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
 
   // Track if OCR has been triggered for current receipt
   const [ocrTriggeredFor, setOcrTriggeredFor] = useState(null);
@@ -292,6 +301,7 @@ export default function ExpenseFormModal({
     setOcrSuccess(null);
     setOcrConfidence(null);
     setExtractedData(null);
+    setUploadMenuOpen(false);
     
     try {
       console.log('Uploading file:', file.name);
@@ -407,6 +417,10 @@ export default function ExpenseFormModal({
         <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-5">
           {/* Receipt Upload */}
           <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 transition-colors">
+            <input id="photo-library-input" type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
+            <input id="take-photo-input" type="file" accept="image/*" capture="environment" onChange={handleReceiptUpload} className="hidden" />
+            <input id="choose-file-input" type="file" accept="image/*,.pdf" onChange={handleReceiptUpload} className="hidden" />
+
             {form.receiptUrl ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-center gap-2 text-green-600">
@@ -478,8 +492,7 @@ export default function ExpenseFormModal({
                 </div>
               </div>
             ) : (
-              <label className="cursor-pointer block py-4">
-                <input type="file" accept="image/*,.pdf" onChange={handleReceiptUpload} className="hidden" />
+              <div className="py-4">
                 {isUploading || isExtracting ? (
                   <div className="flex flex-col items-center gap-1">
                     <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
@@ -487,12 +500,46 @@ export default function ExpenseFormModal({
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-1" />
-                    <p className="text-sm text-gray-600 font-medium">Click to upload receipt</p>
-                    <p className="text-xs text-gray-400">JPG, PNG, or PDF • AI will extract details</p>
+                    <Popover open={uploadMenuOpen} onOpenChange={setUploadMenuOpen}>
+                      <PopoverTrigger asChild>
+                        <button type="button" className="w-full">
+                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-1" />
+                          <p className="text-sm text-gray-600 font-medium">Click to upload receipt</p>
+                          <p className="text-xs text-gray-400">AI will extract details automatically</p>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="center">
+                        <div className="space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('photo-library-input').click()}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <ImageIcon className="h-5 w-5 text-gray-600" />
+                            <span className="text-sm font-medium">Photo Library</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('take-photo-input').click()}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <Camera className="h-5 w-5 text-gray-600" />
+                            <span className="text-sm font-medium">Take Photo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('choose-file-input').click()}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <FolderOpen className="h-5 w-5 text-gray-600" />
+                            <span className="text-sm font-medium">Choose File</span>
+                          </button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </>
                 )}
-              </label>
+              </div>
             )}
           </div>
 
