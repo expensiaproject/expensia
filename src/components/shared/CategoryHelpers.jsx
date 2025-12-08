@@ -8,6 +8,7 @@ export const CATEGORIES = [
   { value: 'equipment_tools', label: 'Equipment & Tools', description: 'Devices, tools, work equipment' },
   { value: 'gifts_souvenirs', label: 'Gifts & Souvenirs', description: 'Business gifts, souvenirs' },
   { value: 'meals', label: 'Meals', description: 'Business meals, food expenses' },
+  { value: 'logging_health', label: 'Logging and Health', description: 'Accommodation expenses' },
   { value: 'other_business', label: 'Other Business Expenses', description: 'Valid business expenses' },
   { value: 'miscellaneous', label: 'Miscellaneous', description: 'Temporary/unclassified items' }
 ];
@@ -43,6 +44,7 @@ export const getCategoryColor = (category) => {
     equipment_tools: 'bg-orange-100 text-orange-800',
     gifts_souvenirs: 'bg-rose-100 text-rose-800',
     meals: 'bg-amber-100 text-amber-800',
+    logging_health: 'bg-emerald-100 text-emerald-800',
     other_business: 'bg-indigo-100 text-indigo-800',
     miscellaneous: 'bg-gray-100 text-gray-800'
   };
