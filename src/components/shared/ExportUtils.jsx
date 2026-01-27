@@ -50,8 +50,7 @@ export const prepareExpenseDataForExport = (expenses, tripCurrency = 'USD') => {
       'Amount': exp.baseAmount ? exp.baseAmount.toFixed(2) : (exp.amount || 0).toFixed(2),
       'Currency': tripCurrency,
       'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
-      'Status': exp.status || 'draft',
-      'Policy Flags': (exp.policyFlags || []).join('; ')
+      'Status': exp.status || 'draft'
     };
 
     // Only add original currency columns if different from trip currency
