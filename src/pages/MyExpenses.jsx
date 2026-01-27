@@ -73,6 +73,11 @@ export default function MyExpenses() {
 
   const baseCurrency = 'USD';
 
+  // Check for reimbursed expenses
+  const reimbursedExpenses = expenses.filter(exp => exp.status === 'reimbursed');
+  const hasReimbursedExpenses = reimbursedExpenses.length > 0;
+  const totalReimbursedAmount = reimbursedExpenses.reduce((sum, exp) => sum + (exp.baseAmount || exp.amount || 0), 0);
+
   const filteredExpenses = expenses.filter(exp => {
     const matchesSearch = !search || 
       exp.merchant?.toLowerCase().includes(search.toLowerCase()) ||
@@ -111,6 +116,28 @@ export default function MyExpenses() {
         </Link>
         <ExportButtonGroup onExport={handleExport} />
       </PageHeader>
+
+      {/* Reimbursed CTA */}
+      {hasReimbursedExpenses && (
+        <Alert className="bg-green-50 border-green-200">
+          <Info className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-semibold">Great news! </span>
+                You have {reimbursedExpenses.length} reimbursed expense{reimbursedExpenses.length > 1 ? 's' : ''} totaling {formatCurrency(totalReimbursedAmount, baseCurrency)}.
+              </div>
+              <Button 
+                variant="link" 
+                className="text-green-700 font-medium underline"
+                onClick={() => setStatusFilter('reimbursed')}
+              >
+                View All
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Info Banner */}
       <Alert className="bg-blue-50 border-blue-200">
