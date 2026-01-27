@@ -65,17 +65,31 @@ export const getStatusColor = (status) => {
   return colors[status] || 'bg-gray-100 text-gray-700';
 };
 
+export const getCurrencySymbol = (currency) => {
+  const symbols = {
+    USD: '$',
+    IDR: 'Rp',
+    KRW: '₩',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+    SGD: 'S$',
+    CNY: '¥',
+    HKD: 'HK$',
+    AUD: 'A$',
+    CAD: 'C$'
+  };
+  return symbols[currency] || currency;
+};
+
 export const formatCurrency = (amount, currency = 'USD') => {
   if (amount === null || amount === undefined) return '-';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2
-    }).format(amount);
-  } catch {
-    return `${currency} ${Number(amount).toFixed(2)}`;
-  }
+  const symbol = getCurrencySymbol(currency);
+  const formattedAmount = Number(amount).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `${symbol} ${formattedAmount}`;
 };
 
 export const calculateTotalBaseAmount = (expenses) => {

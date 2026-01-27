@@ -80,9 +80,13 @@ export default function TripReportDetails() {
   }, [report, currentReceiptIndex]);
 
   // Calculate totals using baseAmount in trip currency
+  const sortedExpenses = [...expenses].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date) : new Date(0);
+    const dateB = b.date ? new Date(b.date) : new Date(0);
+    return dateA - dateB;
+  });
   const totalAmount = expenses.reduce((sum, exp) => sum + (exp.baseAmount || exp.amount || 0), 0);
   const tripCurrency = report?.tripCurrency || 'USD';
-  const perTraveler = report?.travelerCount > 1 ? totalAmount / report.travelerCount : null;
 
   const updateReportMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Report.update(id, data),
@@ -369,7 +373,7 @@ export default function TripReportDetails() {
       {/* Report Summary */}
       <Card className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-0">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-indigo-600">{expenses.length}</p>
               <p className="text-xs text-gray-600">Total Expenses</p>
@@ -382,12 +386,6 @@ export default function TripReportDetails() {
               <p className="text-2xl font-bold text-indigo-600">{report.travelerCount || 1}</p>
               <p className="text-xs text-gray-600">Travelers</p>
             </div>
-            {perTraveler && (
-              <div>
-                <p className="text-2xl font-bold text-indigo-600">{formatCurrency(perTraveler, tripCurrency)}</p>
-                <p className="text-xs text-gray-600">Per Traveler</p>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -435,26 +433,24 @@ export default function TripReportDetails() {
                     <TableHead>Date</TableHead>
                     <TableHead>Merchant</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Original Amount</TableHead>
-                    <TableHead className="text-right">{tripCurrency} Amount</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.map((expense) => (
+                  {sortedExpenses.map((expense) => (
                     <TableRow key={expense.id}>
                       <TableCell>{expense.date ? format(new Date(expense.date), 'MMM d, yyyy') : '-'}</TableCell>
                       <TableCell className="font-medium">{expense.merchant}</TableCell>
                       <TableCell>{getCategoryLabel(expense.category)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(expense.amount, expense.currency || 'USD')}
-                        {expense.currency !== tripCurrency && expense.exchangeRate && (
-                          <span className="block text-xs text-gray-500">@ {expense.exchangeRate}</span>
-                        )}
-                      </TableCell>
                       <TableCell className="text-right font-medium text-indigo-600">
                         {formatCurrency(expense.baseAmount || expense.amount, tripCurrency)}
+                        {expense.currency !== tripCurrency && expense.exchangeRate && (
+                          <span className="block text-xs text-gray-500">
+                            ({formatCurrency(expense.amount, expense.currency)} @ {expense.exchangeRate})
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell><StatusBadge status={expense.status} /></TableCell>
                       <TableCell className="text-right">

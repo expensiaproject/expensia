@@ -1,4 +1,4 @@
-import { getCategoryLabel, getPaymentMethodLabel, getStatusColor } from './CategoryHelpers';
+import { getCategoryLabel, getPaymentMethodLabel, getStatusColor, getCurrencySymbol } from './CategoryHelpers';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 
@@ -40,47 +40,32 @@ const getExportCategoryLabel = (category) => {
   return categoryMap[category] || 'Miscs';
 };
 
-export const prepareExpenseDataForExport = (expenses) => {
-  const categoryOrder = [
-    'International Airfare',
-    'Domestic Airfare',
-    'Local Transport',
-    'Oversea Transport',
-    'Accommodation',
-    'Comms and Logistics',
-    'Entertainment',
-    'Drinks',
-    'Gift',
-    'Miscs'
-  ];
+export const prepareExpenseDataForExport = (expenses, tripCurrency = 'USD') => {
+  const mapped = expenses.map(exp => {
+    const baseData = {
+      'Date': formatDateForExport(exp.date),
+      'Merchant': exp.merchant || '',
+      'Category': getExportCategoryLabel(exp.category),
+      'Description': exp.description || '',
+      'Amount': exp.baseAmount ? exp.baseAmount.toFixed(2) : (exp.amount || 0).toFixed(2),
+      'Currency': tripCurrency,
+      'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
+      'Status': exp.status || 'draft',
+      'Policy Flags': (exp.policyFlags || []).join('; ')
+    };
 
-  const mapped = expenses.map(exp => ({
-    'Date': formatDateForExport(exp.date),
-    'Merchant': exp.merchant || '',
-    'Category': getExportCategoryLabel(exp.category),
-    'Description': exp.description || '',
-    'Amount': exp.amount || 0,
-    'Currency': exp.currency || 'USD',
-    'FX Rate': exp.exchangeRate ? exp.exchangeRate.toFixed(6) : '-',
-    'Base Amount (USD)': exp.baseAmount ? exp.baseAmount.toFixed(2) : (exp.amount || 0),
-    'Tax Amount': exp.taxAmount || '',
-    'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
-    'Status': exp.status || 'draft',
-    'Report ID': exp.reportId || '',
-    'Policy Flags': (exp.policyFlags || []).join('; ')
-  }));
-
-  // Sort by category order, then by date
-  return mapped.sort((a, b) => {
-    const catIndexA = categoryOrder.indexOf(a.Category);
-    const catIndexB = categoryOrder.indexOf(b.Category);
-    
-    if (catIndexA !== catIndexB) {
-      return catIndexA - catIndexB;
+    // Only add original currency columns if different from trip currency
+    if (exp.currency && exp.currency !== tripCurrency && exp.exchangeRate) {
+      baseData['Original Amount'] = (exp.amount || 0).toFixed(2);
+      baseData['Original Currency'] = exp.currency;
+      baseData['FX Rate'] = exp.exchangeRate.toFixed(6);
     }
-    
-    return a.Date.localeCompare(b.Date);
+
+    return baseData;
   });
+
+  // Sort by date ascending
+  return mapped.sort((a, b) => a.Date.localeCompare(b.Date));
 };
 
 export const prepareReportDataForExport = (reports) => {
