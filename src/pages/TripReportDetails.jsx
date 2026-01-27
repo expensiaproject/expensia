@@ -75,10 +75,10 @@ export default function TripReportDetails() {
 
   // Auto-open expense modal if there are pending receipt URLs
   useEffect(() => {
-    if (pendingReceiptUrls.length > 0 && report && currentReceiptIndex < pendingReceiptUrls.length) {
+    if (pendingReceiptUrls.length > 0 && report && reportId && currentReceiptIndex < pendingReceiptUrls.length) {
       setExpenseModal({ open: true, expense: null, initialReceiptUrl: pendingReceiptUrls[currentReceiptIndex] });
     }
-  }, [report, currentReceiptIndex]);
+  }, [report, reportId, currentReceiptIndex, pendingReceiptUrls.length]);
 
   // Calculate totals using baseAmount in trip currency
   const sortedExpenses = [...expenses].sort((a, b) => {
@@ -429,7 +429,13 @@ export default function TripReportDetails() {
           </CardTitle>
           {isEditable && (
             <Button 
-              onClick={() => setExpenseModal({ open: true, expense: null })} 
+              onClick={() => {
+                if (!reportId) {
+                  alert('Please save the report before adding expenses.');
+                  return;
+                }
+                setExpenseModal({ open: true, expense: null });
+              }} 
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               <Plus className="h-4 w-4 mr-2" /> Add Expense to This Trip
@@ -447,7 +453,13 @@ export default function TripReportDetails() {
               <p className="text-gray-500">No expenses yet</p>
               {isEditable && (
                 <Button 
-                  onClick={() => setExpenseModal({ open: true, expense: null })} 
+                  onClick={() => {
+                    if (!reportId) {
+                      alert('Please save the report before adding expenses.');
+                      return;
+                    }
+                    setExpenseModal({ open: true, expense: null });
+                  }} 
                   variant="outline" 
                   className="mt-4"
                 >
@@ -561,31 +573,33 @@ export default function TripReportDetails() {
       </div>
 
       {/* Expense Form Modal */}
-      <ExpenseFormModal
-        open={expenseModal.open}
-        onClose={() => {
-          setExpenseModal({ open: false, expense: null });
-          // If there are more receipts to process, move to next
-          if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
-            setCurrentReceiptIndex(prev => prev + 1);
-          } else if (pendingReceiptUrls.length > 0) {
-            // All receipts processed, clear URL
-            window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
-          }
-        }}
-        reportId={reportId}
-        expense={expenseModal.expense}
-        initialReceiptUrl={expenseModal.initialReceiptUrl}
-        onSuccess={() => {
-          // Move to next receipt after saving
-          if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
-            setCurrentReceiptIndex(prev => prev + 1);
-          } else if (pendingReceiptUrls.length > 0) {
-            // All receipts processed, clear URL
-            window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
-          }
-        }}
-      />
+      {reportId && (
+        <ExpenseFormModal
+          open={expenseModal.open}
+          onClose={() => {
+            setExpenseModal({ open: false, expense: null });
+            // If there are more receipts to process, move to next
+            if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
+              setCurrentReceiptIndex(prev => prev + 1);
+            } else if (pendingReceiptUrls.length > 0) {
+              // All receipts processed, clear URL
+              window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
+            }
+          }}
+          reportId={reportId}
+          expense={expenseModal.expense}
+          initialReceiptUrl={expenseModal.initialReceiptUrl}
+          onSuccess={() => {
+            // Move to next receipt after saving
+            if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {
+              setCurrentReceiptIndex(prev => prev + 1);
+            } else if (pendingReceiptUrls.length > 0) {
+              // All receipts processed, clear URL
+              window.history.replaceState({}, '', createPageUrl(`TripReportDetails?id=${reportId}`));
+            }
+          }}
+        />
+      )}
 
       {/* Expense View Modal */}
       <ExpenseViewModal
