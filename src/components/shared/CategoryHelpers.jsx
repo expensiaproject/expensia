@@ -87,15 +87,18 @@ export const formatCurrency = (amount, currency) => {
   if (!currency) return '-';
   
   const symbol = getCurrencySymbol(currency);
+  
+  // For IDR, no decimals
+  if (currency === 'IDR') {
+    const formattedAmount = Math.round(amount).toLocaleString('en-US');
+    return `${symbol} ${formattedAmount}`;
+  }
+  
+  // For other currencies, 2 decimals
   const formattedAmount = Number(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-  
-  // For IDR, show both symbol and currency code
-  if (currency === 'IDR') {
-    return `${symbol} / ${currency} ${formattedAmount}`;
-  }
   
   return `${symbol} ${formattedAmount}`;
 };
