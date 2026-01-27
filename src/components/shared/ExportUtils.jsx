@@ -20,15 +20,34 @@ export const generateExportFilename = (type, isAdmin = false) => {
   }
 };
 
+const getExportCategoryLabel = (category) => {
+  const categoryMap = {
+    'air_tickets': 'International Airfare',
+    'local_transport': 'Local Transport',
+    'overseas_transport': 'Oversea Transport',
+    'lodging': 'Accommodation',
+    'communication': 'Comms and Logistics',
+    'entertainment_hospitality': 'Entertainment',
+    'meals': 'Drinks',
+    'gifts_souvenirs': 'Gift',
+    'trip_insurance': 'Miscs',
+    'equipment_tools': 'Miscs',
+    'health': 'Miscs',
+    'other_business': 'Miscs',
+    'miscellaneous': 'Miscs'
+  };
+  return categoryMap[category] || 'Miscs';
+};
+
 export const prepareExpenseDataForExport = (expenses) => {
   return expenses.map(exp => ({
     'Date': formatDateForExport(exp.date),
     'Merchant': exp.merchant || '',
-    'Category': getCategoryLabel(exp.category),
+    'Category': getExportCategoryLabel(exp.category),
     'Description': exp.description || '',
     'Amount': exp.amount || 0,
     'Currency': exp.currency || 'USD',
-    'FX Rate': exp.fxRateAtUpload ? exp.fxRateAtUpload.toFixed(6) : '-',
+    'FX Rate': exp.exchangeRate ? exp.exchangeRate.toFixed(6) : '-',
     'Base Amount (USD)': exp.baseAmount ? exp.baseAmount.toFixed(2) : (exp.amount || 0),
     'Tax Amount': exp.taxAmount || '',
     'Payment Method': getPaymentMethodLabel(exp.paymentMethod),
