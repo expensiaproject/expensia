@@ -1,5 +1,6 @@
 import { getCategoryLabel, getPaymentMethodLabel, getStatusColor } from './CategoryHelpers';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 export const formatDateForExport = (date) => {
   if (!date) return '';
@@ -96,6 +97,22 @@ export const prepareReportDataForExport = (reports) => {
   }));
 };
 
+const getCategoryColor = (category) => {
+  const colorMap = {
+    'International Airfare': 'D6EAF8',
+    'Domestic Airfare': 'D5F4E6',
+    'Local Transport': 'FCF3CF',
+    'Oversea Transport': 'FAE5D3',
+    'Accommodation': 'E8DAEF',
+    'Comms and Logistics': 'D5F4E6',
+    'Entertainment': 'FADBD8',
+    'Drinks': 'F9E79F',
+    'Gift': 'F8C471',
+    'Miscs': 'D5DBDB'
+  };
+  return colorMap[category] || 'FFFFFF';
+};
+
 export const exportToExcel = (data, filename) => {
   if (!data || data.length === 0) {
     alert('No data to export');
@@ -104,25 +121,62 @@ export const exportToExcel = (data, filename) => {
   
   const headers = Object.keys(data[0]);
   
-  // Build CSV content with proper escaping
-  const escapeCSV = (val) => {
-    if (val === null || val === undefined) return '';
-    const str = String(val);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-  
-  let csv = '\uFEFF'; // BOM for Excel UTF-8 support
-  csv += headers.map(escapeCSV).join(',') + '\n';
-  
+  // Create worksheet data with headers
+  const wsData = [headers];
   data.forEach(row => {
-    csv += headers.map(h => escapeCSV(row[h])).join(',') + '\n';
+    wsData.push(headers.map(h => row[h]));
   });
   
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, filename.replace('.xlsx', '.csv'));
+  // Create workbook and worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Date
+    { wch: 25 }, // Merchant
+    { wch: 20 }, // Category
+    { wch: 30 }, // Description
+    { wch: 12 }, // Amount
+    { wch: 10 }, // Currency
+    { wch: 12 }, // FX Rate
+    { wch: 15 }, // Base Amount
+    { wch: 12 }, // Tax Amount
+    { wch: 15 }, // Payment Method
+    { wch: 12 }, // Status
+    { wch: 15 }, // Report ID
+    { wch: 30 }  // Policy Flags
+  ];
+  
+  // Style header row
+  headers.forEach((header, colIdx) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: colIdx });
+    if (!ws[cellRef]) ws[cellRef] = { t: 's', v: header };
+    ws[cellRef].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '4F46E5' } },
+      alignment: { horizontal: 'center', vertical: 'center' }
+    };
+  });
+  
+  // Apply category colors to data rows
+  data.forEach((row, rowIdx) => {
+    const categoryColIdx = headers.indexOf('Category');
+    const category = row['Category'];
+    const bgColor = getCategoryColor(category);
+    
+    headers.forEach((header, colIdx) => {
+      const cellRef = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+      if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: bgColor } },
+        alignment: { vertical: 'center' }
+      };
+    });
+  });
+  
+  XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+  XLSX.writeFile(wb, filename);
 };
 
 const LOGO_URL = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/692525e8f1598b43ae001573/312e69aa4_image.png';
