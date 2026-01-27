@@ -20,7 +20,7 @@ import {
         Plane, Calendar, Users, MapPin, Plus, Pencil, Trash2, Send, Save, ArrowLeft, 
         Receipt, Eye, RotateCcw, X, CheckCircle2
       } from 'lucide-react';
-import { getCategoryLabel, formatCurrency, calculateTotalBaseAmount } from '@/components/shared/CategoryHelpers';
+import { getCategoryLabel, formatCurrency, calculateTotalBaseAmount, getCurrencySymbol } from '@/components/shared/CategoryHelpers';
 import { StatusBadge } from '@/components/shared/UIHelpers';
 import ExpenseFormModal from '@/components/expenses/ExpenseFormModal';
 import ExpenseViewModal from '@/components/expenses/ExpenseViewModal';
@@ -353,7 +353,7 @@ export default function TripReportDetails() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-5 w-5 flex items-center justify-center text-gray-400 font-bold">$</div>
+                <div className="h-5 w-5 flex items-center justify-center text-gray-400 font-bold">{getCurrencySymbol(tripCurrency)}</div>
                 <div>
                   <p className="text-xs text-gray-500">Total Amount</p>
                   <p className="text-sm font-semibold text-indigo-600">{formatCurrency(totalAmount, tripCurrency)}</p>
