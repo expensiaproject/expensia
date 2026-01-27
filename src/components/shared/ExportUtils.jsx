@@ -225,6 +225,30 @@ export const exportToPDF = (data, title, filename) => {
   
   const headers = Object.keys(data[0]);
   
+  // Calculate summary
+  const amountsByCurrency = {};
+  data.forEach(row => {
+    const amountStr = row['Amount'];
+    if (amountStr) {
+      // Parse "IDR 1,701,499" or "12.50" format
+      const match = amountStr.match(/^([A-Z]{3})\s+([\d,]+(?:\.\d{2})?)$|^([\d,]+(?:\.\d{2})?)$/);
+      if (match) {
+        const currency = match[1] || (row['Currency'] || 'USD');
+        const amount = parseFloat((match[2] || match[3]).replace(/,/g, ''));
+        amountsByCurrency[currency] = (amountsByCurrency[currency] || 0) + amount;
+      }
+    }
+  });
+  
+  // Format totals
+  const totalAmountsHTML = Object.entries(amountsByCurrency).map(([currency, amount]) => {
+    const symbol = getCurrencySymbol(currency);
+    const formatted = currency === 'IDR' 
+      ? Math.round(amount).toLocaleString('en-US')
+      : amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `<p style="font-size: 16px; font-weight: 600; color: #4F46E5; margin: 0;">${symbol} ${formatted}</p>`;
+  }).join('');
+  
   // Create a printable HTML document that triggers print dialog for Save as PDF
   const html = `
     <!DOCTYPE html>
@@ -268,27 +292,7 @@ export const exportToPDF = (data, title, filename) => {
           </div>
           <div>
             <p style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Total Amount</p>
-            ${(() => {
-              const amountsByCurrency = {};
-              data.forEach(row => {
-                const amountStr = row['Amount'];
-                if (amountStr) {
-                  const match = amountStr.match(/^([A-Z]{3})\\s+([\\d,]+(?:\\.\\d{2})?)$|^([\\d,]+(?:\\.\\d{2})?)$/);
-                  if (match) {
-                    const currency = match[1] || (row['Currency'] || 'USD');
-                    const amount = parseFloat((match[2] || match[3]).replace(/,/g, ''));
-                    amountsByCurrency[currency] = (amountsByCurrency[currency] || 0) + amount;
-                  }
-                }
-              });
-              return Object.entries(amountsByCurrency).map(([currency, amount]) => {
-                const symbol = getCurrencySymbol(currency);
-                const formatted = currency === 'IDR' 
-                  ? Math.round(amount).toLocaleString('en-US')
-                  : amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                return `<p style="font-size: 16px; font-weight: 600; color: #4F46E5;">${symbol} ${formatted}</p>`;
-              }).join('');
-            })()}
+            ${totalAmountsHTML}
           </div>
         </div>
       </div>
