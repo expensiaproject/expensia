@@ -82,13 +82,21 @@ export const getCurrencySymbol = (currency) => {
   return symbols[currency] || currency;
 };
 
-export const formatCurrency = (amount, currency = 'USD') => {
+export const formatCurrency = (amount, currency) => {
   if (amount === null || amount === undefined) return '-';
+  if (!currency) return '-';
+  
   const symbol = getCurrencySymbol(currency);
   const formattedAmount = Number(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+  
+  // For IDR, show both symbol and currency code
+  if (currency === 'IDR') {
+    return `${symbol} / ${currency} ${formattedAmount}`;
+  }
+  
   return `${symbol} ${formattedAmount}`;
 };
 
