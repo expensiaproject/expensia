@@ -103,17 +103,29 @@ export default function MyReports() {
 
   const deleteMutation = useMutation({
     mutationFn: async (reportId) => {
-      // First, unlink expenses from this report
-      const linkedExpenses = allExpenses.filter(e => e.reportId === reportId);
-      for (const exp of linkedExpenses) {
-        await base44.entities.Expense.update(exp.id, { reportId: null });
+      try {
+        // First, find and delete all expenses linked to this report
+        const linkedExpenses = allExpenses.filter(e => e.reportId === reportId);
+        
+        // Delete all expenses first
+        for (const exp of linkedExpenses) {
+          await base44.entities.Expense.delete(exp.id);
+        }
+        
+        // Then delete the report
+        await base44.entities.Report.delete(reportId);
+        await logAuditEvent(user, 'report', reportId, 'delete');
+      } catch (error) {
+        throw new Error('Unable to delete report. Please try again.');
       }
-      await base44.entities.Report.delete(reportId);
-      await logAuditEvent(user, 'report', reportId, 'delete');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myReports'] });
       queryClient.invalidateQueries({ queryKey: ['myExpenses'] });
+      setDeleteDialog({ open: false, report: null });
+    },
+    onError: (error) => {
+      alert(error.message || 'Unable to delete report. Please try again.');
       setDeleteDialog({ open: false, report: null });
     },
   });
@@ -424,7 +436,7 @@ export default function MyReports() {
           <DialogHeader>
             <DialogTitle>Delete Report</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this report? The expenses will be unlinked but not deleted.
+              Are you sure you want to delete this report? All expenses linked to this report will also be permanently deleted. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
