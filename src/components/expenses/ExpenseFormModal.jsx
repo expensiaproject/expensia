@@ -71,12 +71,11 @@ export default function ExpenseFormModal({
     description: '',
     amount: '',
     currency: 'USD',
-    baseCurrency: 'USD',
+    baseCurrency: null,
     taxAmount: '',
     paymentMethod: 'card',
     receiptUrl: '',
-    exchangeRate: '',
-    fxRateAtUpload: null,
+    exchangeRate: null,
     baseAmount: null,
   });
 
@@ -93,6 +92,13 @@ export default function ExpenseFormModal({
   // Track if OCR has been triggered for current receipt
   const [ocrTriggeredFor, setOcrTriggeredFor] = useState(null);
 
+  // Fetch report to get tripCurrency
+  const { data: currentReport } = useQuery({
+    queryKey: ['report', reportId],
+    queryFn: () => base44.entities.Report.filter({ id: reportId }).then(r => r?.[0]),
+    enabled: !!reportId && open,
+  });
+
   // Reset form when modal opens or expense changes
   useEffect(() => {
     if (open) {
@@ -104,12 +110,11 @@ export default function ExpenseFormModal({
           description: expense.description || '',
           amount: expense.amount?.toString() || '',
           currency: expense.currency || 'USD',
-          baseCurrency: expense.baseCurrency || 'USD',
+          baseCurrency: expense.baseCurrency || null,
           taxAmount: expense.taxAmount?.toString() || '',
           paymentMethod: expense.paymentMethod || 'card',
           receiptUrl: expense.receiptUrl || '',
-          exchangeRate: expense.exchangeRate?.toString() || '',
-          fxRateAtUpload: expense.fxRateAtUpload || null,
+          exchangeRate: expense.exchangeRate || null,
           baseAmount: expense.baseAmount || null,
         });
         setExtractedData(expense.extractedFieldsOriginal ? { extractedFieldsOriginal: expense.extractedFieldsOriginal } : null);
@@ -122,12 +127,11 @@ export default function ExpenseFormModal({
           description: '',
           amount: '',
           currency: 'USD',
-          baseCurrency: 'USD',
+          baseCurrency: null,
           taxAmount: '',
           paymentMethod: 'card',
           receiptUrl: initialReceiptUrl || '',
-          exchangeRate: '',
-          fxRateAtUpload: null,
+          exchangeRate: null,
           baseAmount: null,
         });
         setExtractedData(null);
@@ -148,33 +152,43 @@ export default function ExpenseFormModal({
     }
   }, [open, initialReceiptUrl, expense, ocrTriggeredFor]);
 
-  // Fetch FX rate when currency or date changes
+  // Set baseCurrency from report's tripCurrency
   useEffect(() => {
-    const fetchFX = async () => {
-      if (!form.currency || !form.date || form.currency === form.baseCurrency) {
-        // Same currency, rate is 1
-        if (form.currency === form.baseCurrency && form.amount) {
-          setForm(f => ({
-            ...f,
-            fxRateAtUpload: 1,
-            baseAmount: parseFloat(f.amount) || 0
-          }));
-        }
+    if (currentReport && open && !expense) {
+      // For new expenses, use report's tripCurrency if available
+      if (currentReport.tripCurrency) {
+        setForm(f => ({ ...f, baseCurrency: currentReport.tripCurrency }));
+      }
+    }
+  }, [currentReport, open, expense]);
+
+  // Handle currency conversion logic
+  useEffect(() => {
+    const handleConversion = async () => {
+      if (!form.currency || !form.amount || !form.baseCurrency) return;
+
+      const amount = parseFloat(form.amount) || 0;
+
+      // Same currency - no conversion needed
+      if (form.currency === form.baseCurrency) {
+        setForm(f => ({
+          ...f,
+          exchangeRate: null,
+          baseAmount: amount
+        }));
         return;
       }
 
-      // For card: auto-fetch FX unless manually overridden
-      // For cash: also auto-fetch but allow manual override
-      if (!form.fxRateAtUpload || form.paymentMethod === 'card') {
+      // Different currency - need exchange rate
+      if (!form.exchangeRate) {
         setIsFetchingFX(true);
         try {
           const rate = await fetchFXRate(form.currency, form.baseCurrency, form.date);
-          const amount = parseFloat(form.amount) || 0;
           const baseAmt = calculateBaseAmount(amount, rate);
           
           setForm(f => ({
             ...f,
-            fxRateAtUpload: rate,
+            exchangeRate: rate,
             baseAmount: baseAmt
           }));
         } catch (error) {
@@ -182,23 +196,15 @@ export default function ExpenseFormModal({
         } finally {
           setIsFetchingFX(false);
         }
+      } else {
+        // Recalculate with existing rate
+        const baseAmt = calculateBaseAmount(amount, form.exchangeRate);
+        setForm(f => ({ ...f, baseAmount: baseAmt }));
       }
     };
 
-    // Only fetch if we have currency, date, and amount
-    if (form.currency && form.date && form.amount) {
-      fetchFX();
-    }
-  }, [form.currency, form.date, form.amount, form.baseCurrency, form.paymentMethod]);
-
-  // Recalculate baseAmount when amount or fxRateAtUpload changes
-  useEffect(() => {
-    if (form.amount && form.fxRateAtUpload) {
-      const amount = parseFloat(form.amount) || 0;
-      const baseAmt = calculateBaseAmount(amount, form.fxRateAtUpload);
-      setForm(f => ({ ...f, baseAmount: baseAmt }));
-    }
-  }, [form.amount, form.fxRateAtUpload]);
+    handleConversion();
+  }, [form.currency, form.baseCurrency, form.amount, form.date]);
 
   // OCR Processing using shared analyzeReceipt AI action
   const processReceiptOCR = async (fileUrl, forceOverwrite = false) => {
@@ -373,6 +379,12 @@ export default function ExpenseFormModal({
       }
     }
     
+    // If this is the first expense in the report, set tripCurrency
+    let reportUpdateData = null;
+    if (!isEditing && currentReport && !currentReport.tripCurrency) {
+      reportUpdateData = { tripCurrency: form.currency };
+    }
+
     const expenseData = {
       employeeId: user.id,
       date: form.date,
@@ -381,10 +393,9 @@ export default function ExpenseFormModal({
       description: form.description,
       amount: parseFloat(form.amount) || 0,
       currency: form.currency,
-      baseCurrency: form.baseCurrency,
-      fxRateAtUpload: form.fxRateAtUpload,
-      baseAmount: form.baseAmount,
-      exchangeRate: form.exchangeRate ? parseFloat(form.exchangeRate) : null,
+      baseCurrency: form.baseCurrency || form.currency,
+      exchangeRate: form.exchangeRate,
+      baseAmount: form.baseAmount || parseFloat(form.amount) || 0,
       taxAmount: form.taxAmount ? parseFloat(form.taxAmount) : null,
       paymentMethod: form.paymentMethod,
       receiptUrl: form.receiptUrl,
@@ -398,7 +409,17 @@ export default function ExpenseFormModal({
     if (isEditing) {
       updateMutation.mutate({ id: expense.id, data: expenseData });
     } else {
-      createMutation.mutate(expenseData);
+      // Create expense and update report if needed
+      if (reportUpdateData) {
+        createMutation.mutate(expenseData, {
+          onSuccess: () => {
+            base44.entities.Report.update(reportId, reportUpdateData);
+            queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+          }
+        });
+      } else {
+        createMutation.mutate(expenseData);
+      }
     }
   };
 
@@ -633,7 +654,7 @@ export default function ExpenseFormModal({
           </div>
 
           {/* FX Rate Section */}
-          {form.currency !== form.baseCurrency && (
+          {form.baseCurrency && form.currency !== form.baseCurrency && (
             <div className="border-t pt-4 space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Currency Conversion</Label>
@@ -643,29 +664,26 @@ export default function ExpenseFormModal({
                   </span>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">FX Rate (1 {form.currency} = X {form.baseCurrency})</Label>
+                  <Label className="text-xs">Exchange Rate (1 {form.currency} = X {form.baseCurrency}) *</Label>
                   <Input
                     type="number"
                     step="0.000001"
-                    placeholder="Auto-fetched"
-                    value={form.fxRateAtUpload || ''}
+                    placeholder="Required"
+                    value={form.exchangeRate || ''}
                     onChange={(e) => {
                       const rate = parseFloat(e.target.value) || null;
                       const baseAmt = rate ? calculateBaseAmount(parseFloat(form.amount) || 0, rate) : null;
-                      setForm(f => ({ ...f, fxRateAtUpload: rate, baseAmount: baseAmt }));
+                      setForm(f => ({ ...f, exchangeRate: rate, baseAmount: baseAmt }));
                     }}
                     className="h-9"
-                    disabled={form.paymentMethod === 'card' && isFetchingFX}
                   />
-                  <p className="text-xs text-gray-500">
-                    {form.paymentMethod === 'card' ? 'Auto-fetched (editable)' : 'Manual entry allowed'}
-                  </p>
+                  <p className="text-xs text-gray-500">Auto-fetched, editable</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Converted Amount ({form.baseCurrency})</Label>
+                  <Label className="text-xs">Amount in {form.baseCurrency}</Label>
                   <Input
                     type="text"
                     value={form.baseAmount ? form.baseAmount.toFixed(2) : ''}
@@ -675,6 +693,14 @@ export default function ExpenseFormModal({
                   <p className="text-xs text-gray-500">Calculated automatically</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {form.baseCurrency && form.currency === form.baseCurrency && (
+            <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+              <p className="text-xs text-green-700">
+                ✓ Same currency as trip - no conversion needed
+              </p>
             </div>
           )}
 

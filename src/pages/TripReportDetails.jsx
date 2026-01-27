@@ -79,8 +79,9 @@ export default function TripReportDetails() {
     }
   }, [report, currentReceiptIndex]);
 
-  // Calculate totals using baseAmount (USD)
-  const totalAmount = calculateTotalBaseAmount(expenses);
+  // Calculate totals using baseAmount in trip currency
+  const totalAmount = expenses.reduce((sum, exp) => sum + (exp.baseAmount || exp.amount || 0), 0);
+  const tripCurrency = report?.tripCurrency || 'USD';
   const perTraveler = report?.travelerCount > 1 ? totalAmount / report.travelerCount : null;
 
   const updateReportMutation = useMutation({
@@ -309,7 +310,7 @@ export default function TripReportDetails() {
                 <div className="h-5 w-5 flex items-center justify-center text-gray-400 font-bold">$</div>
                 <div>
                   <p className="text-xs text-gray-500">Total Amount</p>
-                  <p className="text-sm font-semibold text-indigo-600">{formatCurrency(totalAmount, 'USD')}</p>
+                  <p className="text-sm font-semibold text-indigo-600">{formatCurrency(totalAmount, tripCurrency)}</p>
                 </div>
               </div>
             </div>
@@ -332,7 +333,7 @@ export default function TripReportDetails() {
               <p className="text-xs text-gray-600">Total Expenses</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-indigo-600">{formatCurrency(totalAmount, 'USD')}</p>
+              <p className="text-2xl font-bold text-indigo-600">{formatCurrency(totalAmount, tripCurrency)}</p>
               <p className="text-xs text-gray-600">Total Amount</p>
             </div>
             <div>
@@ -341,7 +342,7 @@ export default function TripReportDetails() {
             </div>
             {perTraveler && (
               <div>
-                <p className="text-2xl font-bold text-indigo-600">{formatCurrency(perTraveler, 'USD')}</p>
+                <p className="text-2xl font-bold text-indigo-600">{formatCurrency(perTraveler, tripCurrency)}</p>
                 <p className="text-xs text-gray-600">Per Traveler</p>
               </div>
             )}
@@ -392,8 +393,8 @@ export default function TripReportDetails() {
                     <TableHead>Date</TableHead>
                     <TableHead>Merchant</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">USD</TableHead>
+                    <TableHead className="text-right">Original Amount</TableHead>
+                    <TableHead className="text-right">{tripCurrency} Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -404,11 +405,14 @@ export default function TripReportDetails() {
                       <TableCell>{expense.date ? format(new Date(expense.date), 'MMM d, yyyy') : '-'}</TableCell>
                       <TableCell className="font-medium">{expense.merchant}</TableCell>
                       <TableCell>{getCategoryLabel(expense.category)}</TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right">
                         {formatCurrency(expense.amount, expense.currency || 'USD')}
+                        {expense.currency !== tripCurrency && expense.exchangeRate && (
+                          <span className="block text-xs text-gray-500">@ {expense.exchangeRate}</span>
+                        )}
                       </TableCell>
-                      <TableCell className="text-right text-gray-600">
-                        {expense.baseAmount ? formatCurrency(expense.baseAmount, 'USD') : formatCurrency(expense.amount, 'USD')}
+                      <TableCell className="text-right font-medium text-indigo-600">
+                        {formatCurrency(expense.baseAmount || expense.amount, tripCurrency)}
                       </TableCell>
                       <TableCell><StatusBadge status={expense.status} /></TableCell>
                       <TableCell className="text-right">
