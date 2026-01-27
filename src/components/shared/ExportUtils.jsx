@@ -40,7 +40,20 @@ const getExportCategoryLabel = (category) => {
 };
 
 export const prepareExpenseDataForExport = (expenses) => {
-  return expenses.map(exp => ({
+  const categoryOrder = [
+    'International Airfare',
+    'Domestic Airfare',
+    'Local Transport',
+    'Oversea Transport',
+    'Accommodation',
+    'Comms and Logistics',
+    'Entertainment',
+    'Drinks',
+    'Gift',
+    'Miscs'
+  ];
+
+  const mapped = expenses.map(exp => ({
     'Date': formatDateForExport(exp.date),
     'Merchant': exp.merchant || '',
     'Category': getExportCategoryLabel(exp.category),
@@ -55,6 +68,18 @@ export const prepareExpenseDataForExport = (expenses) => {
     'Report ID': exp.reportId || '',
     'Policy Flags': (exp.policyFlags || []).join('; ')
   }));
+
+  // Sort by category order, then by date
+  return mapped.sort((a, b) => {
+    const catIndexA = categoryOrder.indexOf(a.Category);
+    const catIndexB = categoryOrder.indexOf(b.Category);
+    
+    if (catIndexA !== catIndexB) {
+      return catIndexA - catIndexB;
+    }
+    
+    return a.Date.localeCompare(b.Date);
+  });
 };
 
 export const prepareReportDataForExport = (reports) => {
