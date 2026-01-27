@@ -411,11 +411,10 @@ export default function ExpenseFormModal({
     } else {
       // Create expense and update report if needed
       if (reportUpdateData) {
-        createMutation.mutate(expenseData, {
-          onSuccess: () => {
-            base44.entities.Report.update(reportId, reportUpdateData);
-            queryClient.invalidateQueries({ queryKey: ['report', reportId] });
-          }
+        // Update report FIRST, then create expense
+        base44.entities.Report.update(reportId, reportUpdateData).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+          createMutation.mutate(expenseData);
         });
       } else {
         createMutation.mutate(expenseData);
