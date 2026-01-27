@@ -214,10 +214,10 @@ export default function TripReportDetails() {
     );
   }
 
-  const isEditable = report.status === 'open';
+  const isEditable = reportId && (!report || report.status === 'open');
   const isAdmin = user?.role === 'admin';
-  const canReimburse = isAdmin && (report.status === 'submitted');
-  const isReimbursed = report.status === 'reimbursed';
+  const canReimburse = isAdmin && report && (report.status === 'submitted');
+  const isReimbursed = report && report.status === 'reimbursed';
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -427,18 +427,13 @@ export default function TripReportDetails() {
             <Receipt className="h-5 w-5 text-indigo-600" />
             Expenses
           </CardTitle>
-          {isEditable && reportId && (
+          {isEditable && (
             <Button 
               onClick={() => setExpenseModal({ open: true, expense: null })} 
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               <Plus className="h-4 w-4 mr-2" /> Add Expense to This Trip
             </Button>
-          )}
-          {isEditable && !reportId && (
-            <div className="text-sm text-amber-600 bg-amber-50 px-4 py-2 rounded-md">
-              Please save the report before adding expenses.
-            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -450,7 +445,7 @@ export default function TripReportDetails() {
             <div className="text-center py-12">
               <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">No expenses yet</p>
-              {isEditable && reportId && (
+              {isEditable && (
                 <Button 
                   onClick={() => setExpenseModal({ open: true, expense: null })} 
                   variant="outline" 
@@ -458,9 +453,6 @@ export default function TripReportDetails() {
                 >
                   <Plus className="h-4 w-4 mr-2" /> Add Your First Expense
                 </Button>
-              )}
-              {isEditable && !reportId && (
-                <p className="text-amber-600">Please save the report before adding expenses.</p>
               )}
             </div>
           ) : (
