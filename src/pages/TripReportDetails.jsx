@@ -17,9 +17,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import {
-  Plane, Calendar, Users, MapPin, Plus, Pencil, Trash2, Send, Save, ArrowLeft, 
-  Receipt, Eye, RotateCcw, X
-} from 'lucide-react';
+        Plane, Calendar, Users, MapPin, Plus, Pencil, Trash2, Send, Save, ArrowLeft, 
+        Receipt, Eye, RotateCcw, X, CheckCircle2
+      } from 'lucide-react';
 import { getCategoryLabel, formatCurrency, calculateTotalBaseAmount } from '@/components/shared/CategoryHelpers';
 import { StatusBadge } from '@/components/shared/UIHelpers';
 import ExpenseFormModal from '@/components/expenses/ExpenseFormModal';
@@ -122,6 +122,25 @@ export default function TripReportDetails() {
     },
   });
 
+  const reimburseReportMutation = useMutation({
+    mutationFn: async () => {
+      // Update all expenses to reimbursed
+      for (const exp of expenses) {
+        await base44.entities.Expense.update(exp.id, { status: 'reimbursed' });
+      }
+      // Update report status
+      await base44.entities.Report.update(reportId, { 
+        status: 'reimbursed',
+        reimbursedAt: format(new Date(), 'yyyy-MM-dd')
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+      queryClient.invalidateQueries({ queryKey: ['expenses', 'report', reportId] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
   // Update report totalAmount when expenses change
   useEffect(() => {
     if (report && report.totalAmount !== totalAmount && !reportLoading) {
@@ -152,6 +171,12 @@ export default function TripReportDetails() {
     navigate(createPageUrl('MyReports'));
   };
 
+  const handleReimburseReport = () => {
+    if (confirm('Mark this report as reimbursed? This action will lock the report and cannot be undone.')) {
+      reimburseReportMutation.mutate();
+    }
+  };
+
   if (reportLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -172,6 +197,9 @@ export default function TripReportDetails() {
   }
 
   const isEditable = report.status === 'open';
+  const isAdmin = user?.role === 'admin';
+  const canReimburse = isAdmin && (report.status === 'submitted');
+  const isReimbursed = report.status === 'reimbursed';
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -187,6 +215,11 @@ export default function TripReportDetails() {
             <h1 className="text-2xl font-semibold text-gray-900">{report.title}</h1>
             <div className="flex items-center gap-2 mt-1">
               <StatusBadge status={report.status} />
+              {isReimbursed && report.reimbursedAt && (
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                  Reimbursed on {format(new Date(report.reimbursedAt), 'MMM d, yyyy')}
+                </span>
+              )}
               {report.destination && (
                 <span className="text-sm text-gray-500 flex items-center gap-1">
                   <MapPin className="h-3 w-3" /> {report.destination}
@@ -196,6 +229,15 @@ export default function TripReportDetails() {
           </div>
         </div>
       </div>
+
+      {/* Reimbursed Notice */}
+      {isReimbursed && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800 font-medium">
+            This report has been reimbursed and is locked for editing.
+          </p>
+        </div>
+      )}
 
       {/* Trip Info Section - Editable */}
       <Card className="mb-6">
@@ -485,6 +527,15 @@ export default function TripReportDetails() {
               <Send className="h-4 w-4 mr-2" /> Save & Submit
             </Button>
           </>
+        )}
+        {canReimburse && (
+          <Button 
+            onClick={handleReimburseReport} 
+            disabled={reimburseReportMutation.isPending}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" /> Mark as Reimbursed
+          </Button>
         )}
       </div>
 

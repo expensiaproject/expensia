@@ -59,7 +59,8 @@ export const getStatusColor = (status) => {
     submitted: 'bg-amber-100 text-amber-800',
     reimbursed: 'bg-green-100 text-green-800',
     open: 'bg-gray-100 text-gray-700',
-    paid: 'bg-green-100 text-green-800'
+    paid: 'bg-green-100 text-green-800',
+    approved: 'bg-blue-100 text-blue-800'
   };
   return colors[status] || 'bg-gray-100 text-gray-700';
 };
