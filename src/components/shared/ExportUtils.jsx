@@ -55,19 +55,19 @@ const formatAmountForExport = (amount, currency) => {
 
 export const prepareExpenseDataForExport = (expenses, tripCurrency = 'USD') => {
   // Detect if all expenses use the same currency
-  const currencies = [...new Set(expenses.map(exp => exp.currency || tripCurrency))];
+  const currencies = [...new Set(expenses.map(exp => exp.currency || 'USD'))];
   const isSingleCurrency = currencies.length === 1;
   
   const mapped = expenses.map(exp => {
-    const expCurrency = exp.currency || tripCurrency;
-    const amount = exp.baseAmount || exp.amount || 0;
+    const expCurrency = exp.currency || 'USD';
+    const amount = exp.amount || 0;
     
     const baseData = {
       'Date': formatDateForExport(exp.date),
       'Merchant': exp.merchant || '',
       'Category': getExportCategoryLabel(exp.category),
       'Description': exp.description || '',
-      'Amount': formatAmountForExport(amount, tripCurrency)
+      'Amount': formatAmountForExport(amount, expCurrency)
     };
 
     // Only add Currency column if multiple currencies are present
@@ -77,13 +77,6 @@ export const prepareExpenseDataForExport = (expenses, tripCurrency = 'USD') => {
 
     baseData['Payment Method'] = getPaymentMethodLabel(exp.paymentMethod);
     baseData['Status'] = exp.status || 'draft';
-
-    // Only add original currency columns if different from trip currency
-    if (exp.currency && exp.currency !== tripCurrency && exp.exchangeRate) {
-      baseData['Original Amount'] = formatAmountForExport(exp.amount, exp.currency);
-      baseData['Original Currency'] = exp.currency;
-      baseData['FX Rate'] = exp.exchangeRate.toFixed(6);
-    }
 
     return baseData;
   });

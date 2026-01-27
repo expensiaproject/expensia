@@ -141,13 +141,13 @@ export default function MyReports() {
 
   const handleExportReportExpenses = (report, type) => {
     const expenses = getReportExpenses(report.id);
-    const data = prepareExpenseDataForExport(expenses, report.tripCurrency);
+    const data = prepareExpenseDataForExport(expenses);
     const filename = `Expensia_Report_${report.title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}`;
     
     if (type === 'excel') {
       exportToExcel(data, `${filename}.xlsx`);
     } else if (type === 'pdf') {
-      exportToPDF(data, `${filename}.pdf`, { ...report, tripCurrency: report.tripCurrency });
+      exportToPDF(data, report.title, filename);
     }
   };
 
@@ -254,7 +254,21 @@ export default function MyReports() {
                       </TableCell>
                       <TableCell className="text-sm">{reportExpenses.length}</TableCell>
                       <TableCell className="text-right font-medium tabular-nums text-sm">
-                        {formatCurrency(report.totalAmount, report.tripCurrency || 'USD')}
+                        {(() => {
+                          const reportExpenses = getReportExpenses(report.id);
+                          const byCurrency = reportExpenses.reduce((acc, exp) => {
+                            const curr = exp.currency || 'USD';
+                            acc[curr] = (acc[curr] || 0) + (exp.amount || 0);
+                            return acc;
+                          }, {});
+                          const currencies = Object.keys(byCurrency);
+                          if (currencies.length === 1) {
+                            return formatCurrency(byCurrency[currencies[0]], currencies[0]);
+                          }
+                          return Object.entries(byCurrency).map(([curr, amt]) => (
+                            <div key={curr}>{formatCurrency(amt, curr)}</div>
+                          ));
+                        })()}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={report.status} />
@@ -351,7 +365,21 @@ export default function MyReports() {
                 <div>
                   <p className="text-sm text-gray-500">Total Amount</p>
                   <p className="font-medium text-lg">
-                    {formatCurrency(viewDialog.report.totalAmount, viewDialog.report.tripCurrency || 'USD')}
+                    {(() => {
+                      const reportExpenses = getReportExpenses(viewDialog.report.id);
+                      const byCurrency = reportExpenses.reduce((acc, exp) => {
+                        const curr = exp.currency || 'USD';
+                        acc[curr] = (acc[curr] || 0) + (exp.amount || 0);
+                        return acc;
+                      }, {});
+                      const currencies = Object.keys(byCurrency);
+                      if (currencies.length === 1) {
+                        return formatCurrency(byCurrency[currencies[0]], currencies[0]);
+                      }
+                      return Object.entries(byCurrency).map(([curr, amt]) => (
+                        <div key={curr}>{formatCurrency(amt, curr)}</div>
+                      ));
+                    })()}
                   </p>
                 </div>
               </div>
@@ -376,7 +404,7 @@ export default function MyReports() {
                         </div>
                       </div>
                       <p className="font-medium">
-                        {formatCurrency(expense.amount, expense.currency || baseCurrency)}
+                        {formatCurrency(expense.amount, expense.currency || 'USD')}
                       </p>
                     </div>
                   ))}

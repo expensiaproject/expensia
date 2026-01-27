@@ -85,7 +85,20 @@ export default function TripReportDetails() {
     const dateB = b.date ? new Date(b.date) : new Date(0);
     return dateA - dateB;
   });
-  const totalAmount = expenses.reduce((sum, exp) => sum + (exp.baseAmount || exp.amount || 0), 0);
+  
+  // Group expenses by currency
+  const expensesByCurrency = expenses.reduce((acc, exp) => {
+    const curr = exp.currency || 'USD';
+    acc[curr] = (acc[curr] || 0) + (exp.amount || 0);
+    return acc;
+  }, {});
+  
+  const currencies = Object.keys(expensesByCurrency);
+  const isSingleCurrency = currencies.length === 1;
+  const displayCurrency = isSingleCurrency ? currencies[0] : (report?.tripCurrency || 'USD');
+  const totalAmount = isSingleCurrency 
+    ? expensesByCurrency[displayCurrency] 
+    : expenses.reduce((sum, exp) => sum + (exp.baseAmount || exp.amount || 0), 0);
   const tripCurrency = report?.tripCurrency || 'USD';
 
   const updateReportMutation = useMutation({
@@ -353,10 +366,18 @@ export default function TripReportDetails() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-5 w-5 flex items-center justify-center text-gray-400 font-bold">{getCurrencySymbol(tripCurrency)}</div>
+                <div className="h-5 w-5 flex items-center justify-center text-gray-400 font-bold">{getCurrencySymbol(displayCurrency)}</div>
                 <div>
                   <p className="text-xs text-gray-500">Total Amount</p>
-                  <p className="text-sm font-semibold text-indigo-600">{formatCurrency(totalAmount, tripCurrency)}</p>
+                  <p className="text-sm font-semibold text-indigo-600">
+                    {isSingleCurrency ? formatCurrency(totalAmount, displayCurrency) : (
+                      <span className="text-xs">
+                        {Object.entries(expensesByCurrency).map(([curr, amt]) => (
+                          <span key={curr} className="block">{formatCurrency(amt, curr)}</span>
+                        ))}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
             </div>
@@ -379,7 +400,15 @@ export default function TripReportDetails() {
               <p className="text-xs text-gray-600">Total Expenses</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-indigo-600">{formatCurrency(totalAmount, tripCurrency)}</p>
+              <p className="text-2xl font-bold text-indigo-600">
+                {isSingleCurrency ? formatCurrency(totalAmount, displayCurrency) : (
+                  <span className="text-base">
+                    {Object.entries(expensesByCurrency).map(([curr, amt]) => (
+                      <span key={curr} className="block">{formatCurrency(amt, curr)}</span>
+                    ))}
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-gray-600">Total Amount</p>
             </div>
             <div>
@@ -445,12 +474,7 @@ export default function TripReportDetails() {
                       <TableCell className="font-medium">{expense.merchant}</TableCell>
                       <TableCell>{getCategoryLabel(expense.category)}</TableCell>
                       <TableCell className="text-right font-medium text-indigo-600">
-                        {formatCurrency(expense.baseAmount || expense.amount, tripCurrency)}
-                        {expense.currency !== tripCurrency && expense.exchangeRate && (
-                          <span className="block text-xs text-gray-500">
-                            ({formatCurrency(expense.amount, expense.currency)} @ {expense.exchangeRate})
-                          </span>
-                        )}
+                        {formatCurrency(expense.amount, expense.currency || 'USD')}
                       </TableCell>
                       <TableCell><StatusBadge status={expense.status} /></TableCell>
                       <TableCell className="text-right">
