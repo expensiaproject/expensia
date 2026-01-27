@@ -45,12 +45,13 @@ export default function TripReportDetails() {
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: report, isLoading: reportLoading } = useQuery({
+  const { data: reports = [], isLoading: reportLoading } = useQuery({
     queryKey: ['report', reportId],
     queryFn: () => base44.entities.Report.filter({ id: reportId }),
     enabled: !!reportId,
-    select: (data) => data?.[0],
   });
+  
+  const report = reports?.[0];
 
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({
     queryKey: ['expenses', 'report', reportId],
