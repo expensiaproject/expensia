@@ -589,6 +589,7 @@ export default function TripReportDetails() {
           reportId={reportId}
           expense={expenseModal.expense}
           initialReceiptUrl={expenseModal.initialReceiptUrl}
+          tripCurrency={report?.tripCurrency || null}
           onSuccess={() => {
             // Move to next receipt after saving
             if (pendingReceiptUrls.length > 0 && currentReceiptIndex < pendingReceiptUrls.length - 1) {

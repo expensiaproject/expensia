@@ -49,7 +49,8 @@ export default function ExpenseFormModal({
   reportId, 
   expense = null, // For editing
   initialReceiptUrl = null, // Pre-uploaded receipt
-  onSuccess 
+  onSuccess,
+  tripCurrency: tripCurrencyProp = null // Pass tripCurrency to avoid fetching
 }) {
   const queryClient = useQueryClient();
   const isEditing = !!expense;
@@ -92,12 +93,8 @@ export default function ExpenseFormModal({
   // Track if OCR has been triggered for current receipt
   const [ocrTriggeredFor, setOcrTriggeredFor] = useState(null);
 
-  // Fetch report to get tripCurrency
-  const { data: currentReport } = useQuery({
-    queryKey: ['report', reportId],
-    queryFn: () => base44.entities.Report.filter({ id: reportId }).then(r => r?.[0]),
-    enabled: !!reportId && open,
-  });
+  // Track tripCurrency state without fetching report
+  const [tripCurrency, setTripCurrency] = useState(tripCurrencyProp);
 
   // Reset form when modal opens or expense changes
   useEffect(() => {
@@ -152,15 +149,12 @@ export default function ExpenseFormModal({
     }
   }, [open, initialReceiptUrl, expense, ocrTriggeredFor]);
 
-  // Set baseCurrency from report's tripCurrency
+  // Set baseCurrency from tripCurrency prop
   useEffect(() => {
-    if (currentReport && open && !expense) {
-      // For new expenses, use report's tripCurrency if available
-      if (currentReport.tripCurrency) {
-        setForm(f => ({ ...f, baseCurrency: currentReport.tripCurrency }));
-      }
+    if (tripCurrency && open && !expense) {
+      setForm(f => ({ ...f, baseCurrency: tripCurrency }));
     }
-  }, [currentReport, open, expense]);
+  }, [tripCurrency, open, expense]);
 
   // Handle currency conversion logic
   useEffect(() => {
@@ -381,7 +375,7 @@ export default function ExpenseFormModal({
     
     // If this is the first expense in the report, set tripCurrency
     let reportUpdateData = null;
-    if (!isEditing && currentReport && !currentReport.tripCurrency) {
+    if (!isEditing && !tripCurrency) {
       reportUpdateData = { tripCurrency: form.currency };
     }
 
